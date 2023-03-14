@@ -10,19 +10,19 @@ namespace thread {
 
 class JoinThreads {
  public:
-    explicit JoinThreads(std::vector<std::thread>& threads) // NOLINT
+    explicit JoinThreads(std::vector<std::thread>* threads)
         : m_threads(threads) { }
 
     ~JoinThreads() {
-        for (uint32_t i = 0; i < m_threads.size(); i++) {
-            if (m_threads[i].joinable()) {
-                m_threads[i].join();
+        for (uint32_t i = 0; i < m_threads->size(); i++) {
+            if ((*m_threads)[i].joinable()) {
+                (*m_threads)[i].join();
             }
         }
     }
 
  private:
-    std::vector<std::thread>& m_threads;
+    std::vector<std::thread>* m_threads;
 };
 
 }   // namespace thread

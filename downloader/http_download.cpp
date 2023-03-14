@@ -72,7 +72,7 @@ int HttpDownloader::MutiDown(const std::string& url,
                                 this, data));
     }
 
-    downloader::thread::JoinThreads join(threads_arr);
+    downloader::thread::JoinThreads join(&threads_arr);
 
     return 0;
 }
