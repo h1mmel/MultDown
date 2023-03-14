@@ -3,7 +3,7 @@
 
 #include "downloader/download.h"
 #include "downloader/http_factory.h"
-#include "downloader/cmdline.h"
+#include "third/cmdline.h"
 
 void helper(cmdline::parser* parser, int argc, char* argv[]);
 
