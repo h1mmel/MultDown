@@ -2,7 +2,7 @@
 
 namespace downloader {
 
-int HttpDownloader::Download(const std::string& url,
+uint64_t HttpDownloader::Download(const std::string& url,
                             const std::string& file_path,
                             uint64_t start,
                             uint64_t end) {
@@ -39,14 +39,15 @@ int HttpDownloader::Download(const std::string& url,
         }
         curl_easy_cleanup(curl);
     }
-    return 0;
+    uint64_t rest = data->tail - data->head;
+    return rest == 0 ? data->tail + 1 : data->head - start + 1;
 }
 
 int HttpDownloader::MutiDown(const std::string& url,
-                            const std::string& file_path,
-                            uint64_t start,
-                            uint64_t end,
-                            int threads) {
+                                  const std::string& file_path,
+                                  uint64_t start,
+                                  uint64_t end,
+                                  int threads) {
     uint64_t len = end - start + 1;
     uint64_t size = len / threads;
     uint64_t head = start, tail = 0;
@@ -75,6 +76,14 @@ int HttpDownloader::MutiDown(const std::string& url,
     downloader::thread::JoinThreads join(&threads_arr);
 
     return 0;
+}
+
+uint64_t HttpDownloader::GetRest() {
+    uint64_t rest = 0;
+    for (size_t i = 0; i < m_data_vec.size(); i++) {
+        rest += m_data_vec[i]->tail - m_data_vec[i]->head;
+    }
+    return rest;
 }
 
 }   // namespace downloader

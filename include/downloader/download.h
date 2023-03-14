@@ -53,31 +53,50 @@ class Downloader {
             std::cerr << "CreateFile() failed" << std::endl;
             return -1;
         }
-        std::chrono::time_point<std::chrono::high_resolution_clock> now
+        std::chrono::time_point<std::chrono::high_resolution_clock> start
                                     = std::chrono::high_resolution_clock::now();
-        std::time_t t_now = std::chrono::high_resolution_clock::to_time_t(now);
+        std::time_t t_now =
+                    std::chrono::high_resolution_clock::to_time_t(start);
         std::tm tm_now {};
         std::cout << "--" << std::put_time(localtime_r(&t_now, &tm_now), "%c")
                   << "--  " << url << std::endl;
         std::cout << "Length: " << len;
         std::cout << std::setprecision(1);
+        std::cout << std::setiosflags(std::ios::fixed);
         if (len < 1024)
-            std::cout << " (" << len << "B)" << std::endl;
+            std::cout << " (" << len << "B)\n";
         else if (len < 1024 * 1024)
-            std::cout << std::setiosflags(std::ios::fixed) << " ("
-                      << 1.0 * len / 1024 << "K)" << std::endl;
+            std::cout << " (" << 1.0 * len / 1024 << "K)\n";
         else if (len < 1024 * 1024 * 1024)
-            std::cout << std::setiosflags(std::ios::fixed) << " ("
-                      << 1.0 * len / 1024 / 1024 << "M)" << std::endl;
+            std::cout << " (" << 1.0 * len / 1024 / 1024 << "M)\n";
         else
-            std::cout << std::setiosflags(std::ios::fixed) << " ("
-                      << 1.0 * len / 1024 / 1024 / 1024 << "G)" << std::endl;
+            std::cout << " (" << 1.0 * len / 1024 / 1024 / 1024 << "G)\n";
         std::cout << "Saving to: " << "'" << m_save_path << "'\n" << std::endl;
-        if (m_threads > 1)
+        uint64_t down = 0;
+        if (m_threads > 1) {
             m_strategy->MutiDown(url, m_save_path, 0, len - 1, m_threads);
-        else
-            m_strategy->Download(url, m_save_path, 0, len - 1);
-
+            down = len - m_strategy->GetRest();
+        } else {
+            down = m_strategy->Download(url, m_save_path, 0, len - 1);
+        }
+        std::chrono::time_point<std::chrono::high_resolution_clock> done
+                                    = std::chrono::high_resolution_clock::now();
+        t_now = std::chrono::high_resolution_clock::to_time_t(done);
+        std::chrono::duration<double> elapsed = done - start;
+        std::cout << "\n\n"
+                  << std::put_time(localtime_r(&t_now, &tm_now), "%c");
+        if (len < 1024) {
+            double rate = 1.0 * len / elapsed.count();
+            std::cout << " (" << rate << " B/s)";
+        } else if (len < 1024 * 1024) {
+            double rate = 1.0 * len / 1024 / elapsed.count();
+            std::cout << " (" << rate << " KB/s)";
+        } else {
+            double rate = 1.0 * len / 1024 / 1024 / elapsed.count();
+            std::cout << " (" << rate << " MB/s)";
+        }
+        std::cout << " - '" << m_save_path << "' saved [" << down
+                  << "/" << len << "]\n" << std::endl;
         return 0;
     }
 

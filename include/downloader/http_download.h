@@ -28,16 +28,21 @@ class HttpDownloader : public DownloadStrategy {
  public:
     HttpDownloader() : m_data_vec(), m_fp(nullptr) {}
 
-    int Download(const std::string& url,
-                const std::string& file_path,
-                uint64_t start,
-                uint64_t end) override;
+    uint64_t Download(const std::string& url,
+                      const std::string& file_path,
+                      uint64_t start,
+                      uint64_t end) override;
 
     int MutiDown(const std::string&,
-                const std::string& file_path,
-                uint64_t start,
-                uint64_t end,
-                int threads) override;
+                 const std::string& file_path,
+                 uint64_t start,
+                 uint64_t end,
+                 int threads) override;
+
+    // 获取还未下载的字节数
+    // 与 MutiDown 结合使用，且必须在 MutiDown 函数完成后使用
+    // TODO(xxx): 别扭
+    uint64_t GetRest();
 
     virtual ~HttpDownloader() {
         if (m_fp != nullptr) fclose(m_fp);
@@ -99,7 +104,7 @@ class HttpDownloader : public DownloadStrategy {
             if (status != 200 && status != 206) {
                 stream.clear();
                 stream.str("");
-                stream << "error status: " << status << std::endl;
+                stream << "\nerror status: " << status << std::endl;
                 std::cerr << stream.str();
             }
             curl_easy_cleanup(data->curl);
