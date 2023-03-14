@@ -1,4 +1,4 @@
 # ---> VisualStudioCode
 .settings
-
-
+bin/*
+obj/*
