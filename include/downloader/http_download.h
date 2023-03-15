@@ -26,7 +26,7 @@ static std::mutex g_prog_mutex;
 
 class HttpDownloader : public DownloadStrategy {
  public:
-    HttpDownloader() : m_data_vec(), m_fp(nullptr) {}
+    HttpDownloader() : m_data_vec(), m_fp(nullptr), m_error_flag(false) {}
 
     uint64_t Download(const std::string& url,
                       const std::string& file_path,
@@ -68,6 +68,7 @@ class HttpDownloader : public DownloadStrategy {
 
     std::vector<WriteData*> m_data_vec;
     FILE* m_fp;
+    bool m_error_flag;
 
  private:
     void WorkerThread(WriteData* data) {
@@ -101,7 +102,8 @@ class HttpDownloader : public DownloadStrategy {
             }
             int32_t status = 0;
             curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
-            if (status != 200 && status != 206) {
+            if (status != 200 && status != 206 && m_error_flag == false) {
+                m_error_flag = true;
                 stream.clear();
                 stream.str("");
                 stream << "\nerror status: " << status << std::endl;
@@ -150,6 +152,7 @@ class HttpDownloader : public DownloadStrategy {
         percent = 1.0 * down / total;
         int dot = round(percent * total_dot);
         std::lock_guard<std::mutex> lk(g_prog_mutex);
+        if (p_this->m_error_flag) return 0;
         printf("\r%-30s%3.0f%%", data->file_path, percent * 100);
         int i = 0;
         printf("[");
