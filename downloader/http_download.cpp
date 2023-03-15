@@ -10,7 +10,8 @@ uint64_t HttpDownloader::Download(const std::string& url,
     FILE* fp = fopen(file_path.c_str(), "r+");
     CURL* curl = curl_easy_init();
     WriteData* data = new WriteData;
-    data->file_path = file_path.c_str();
+    data->file_path = file_path.substr(file_path.find_last_of('/') + 1,
+                            file_path.size()).c_str();
     data->head = start;
     data->tail = end;
     data->url = url.c_str();
