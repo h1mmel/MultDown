@@ -60,7 +60,8 @@ int HttpDownloader::MutiDown(const std::string& url,
             tail = head + size - 1;
         }
         WriteData* data = new WriteData;
-        data->file_path = file_path.c_str();
+        data->file_path = file_path.substr(file_path.find_last_of('/') + 1,
+                                file_path.size()).c_str();
         data->head = head;
         data->tail = tail;
         data->url = url.c_str();
