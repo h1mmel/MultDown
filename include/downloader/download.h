@@ -28,7 +28,10 @@ class Downloader {
 
  public:
     explicit Downloader(int threads_number, const std::string& path)
-            : m_threads(threads_number), m_save_path(path) {
+            : m_strategy(nullptr),
+              m_threads(threads_number),
+              m_save_path(path),
+              m_info() {
         StrategyFactory* factory =
                         util::GetFactory<value_type>::GetRealFactory();
         if (m_save_path.back() == '/') {
@@ -111,7 +114,6 @@ class Downloader {
     DownloadStrategy* m_strategy;
     int m_threads;
     std::string m_save_path;
-    std::ofstream m_fstream;
     struct FileInfo {
         char* content_type;
         uint64_t content_length;
