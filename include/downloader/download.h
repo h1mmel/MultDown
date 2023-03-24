@@ -155,9 +155,6 @@ class Downloader {
     }
 
     int CreateFile(uint64_t len) {
-        if (m_save_path.back() == '/') {
-            m_save_path += "index.html";
-        }
         std::ofstream file(m_save_path, std::ios::out);
         try {
             file.seekp(len - 1);
