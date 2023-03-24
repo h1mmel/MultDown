@@ -1,6 +1,8 @@
 #ifndef _STRATEGY_FACTORY_H_    // NOLINT
 #define _STRATEGY_FACTORY_H_    // NOLINT
 
+#include <string>
+
 #include "downloader/proto.h"
 #include "downloader/download_strategy.h"
 
@@ -11,7 +13,8 @@ class StrategyFactory {
     StrategyFactory() {}
     virtual ~StrategyFactory() = default;
 
-    virtual DownloadStrategy* NewStrategy() = 0;
+    virtual DownloadStrategy* NewStrategy(int threads_number,
+                                          const std::string& path) = 0;
 };
 
 }   // namespace downloader

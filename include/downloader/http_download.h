@@ -26,23 +26,20 @@ static std::mutex g_prog_mutex;
 
 class HttpDownloader : public DownloadStrategy {
  public:
-    HttpDownloader() : m_data_vec(), m_fp(nullptr), m_error_flag(false) {}
+    HttpDownloader(int threads_number, const std::string& path)
+        : m_threads_number(threads_number),
+          m_path(path),
+          m_fp(nullptr),
+          m_error_flag(false) {
+        for (int i = 0; i < threads_number; i++) {
+            m_data_vec.push_back(new WriteData);
+        }
+        m_file_name = path.substr(path.find_last_of('/') + 1, path.size());
+    }
 
     uint64_t Download(const std::string& url,
-                      const std::string& file_path,
                       uint64_t start,
                       uint64_t end) override;
-
-    int MutiDown(const std::string&,
-                 const std::string& file_path,
-                 uint64_t start,
-                 uint64_t end,
-                 int threads) override;
-
-    // 获取还未下载的字节数
-    // 与 MutiDown 结合使用，且必须在 MutiDown 函数完成后使用
-    // TODO(xxx): 别扭
-    uint64_t GetRest();
 
     virtual ~HttpDownloader() {
         if (m_fp != nullptr) fclose(m_fp);
@@ -56,19 +53,22 @@ class HttpDownloader : public DownloadStrategy {
         uint64_t head;
         uint64_t tail;
         CURL* curl;
-        const char* file_path;
+        const char* file_name;
         const char* url;
         FILE* fp;
         void* m_this;
         WriteData() : head(0), tail(0), curl(nullptr),
-                        file_path(nullptr), url(nullptr),
-                        fp(nullptr), m_this(nullptr)
+                      file_name(nullptr), url(nullptr),
+                      fp(nullptr), m_this(nullptr)
         {}
     };
 
-    std::vector<WriteData*> m_data_vec;
+    int m_threads_number;
+    std::string m_path;
+    std::string m_file_name;
     FILE* m_fp;
     bool m_error_flag;
+    std::vector<WriteData*> m_data_vec;
 
  private:
     void WorkerThread(WriteData* data) {
@@ -153,7 +153,7 @@ class HttpDownloader : public DownloadStrategy {
         int dot = round(percent * total_dot);
         std::lock_guard<std::mutex> lk(g_prog_mutex);
         if (p_this->m_error_flag) return 0;
-        printf("\r%-30s%3.0f%%", data->file_path, percent * 100);
+        printf("\r%-30s%3.0f%%", data->file_name, percent * 100);
         int i = 0;
         printf("[");
         for (; i < dot; i++)

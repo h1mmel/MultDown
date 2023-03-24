@@ -31,7 +31,10 @@ class Downloader {
             : m_threads(threads_number), m_save_path(path) {
         StrategyFactory* factory =
                         util::GetFactory<value_type>::GetRealFactory();
-        this->m_strategy = factory->NewStrategy();
+        if (m_save_path.back() == '/') {
+            m_save_path += "index.html";
+        }
+        this->m_strategy = factory->NewStrategy(threads_number, m_save_path);
         delete factory;
         curl_global_init(CURL_GLOBAL_ALL);
         std::cout << "libcurl version: " << curl_version() << std::endl;
@@ -81,15 +84,7 @@ class Downloader {
                   << m_save_path.substr(m_save_path.find_last_of('/') + 1,
                                     m_save_path.size())
                   << "'\n" << std::endl;
-        uint64_t down = 0;
-        if (m_threads > 1) {
-            m_strategy->MutiDown(url, m_save_path, 0,
-                                    m_info.content_length - 1, m_threads);
-            down = m_info.content_length - m_strategy->GetRest();
-        } else {
-            down = m_strategy->Download(url, m_save_path,
-                                    0, m_info.content_length - 1);
-        }
+        uint64_t down = m_strategy->Download(url, 0, m_info.content_length - 1);
         std::chrono::time_point<std::chrono::high_resolution_clock> done
                                     = std::chrono::high_resolution_clock::now();
         t_now = std::chrono::high_resolution_clock::to_time_t(done);
