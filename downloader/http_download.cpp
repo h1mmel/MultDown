@@ -12,7 +12,11 @@ uint64_t HttpDownloader::Download(const std::string& url,
     if (m_meta->fp == nullptr) return 0;
     uint8_t* base = reinterpret_cast<uint8_t*>(mmap(nullptr, len, PROT_WRITE,
                                     MAP_SHARED, m_meta->fp->_fileno, 0));
-    if (base == MAP_FAILED) return 0;
+    if (base == MAP_FAILED) {
+        perror(nullptr);
+        return 0;
+    }
+
     m_meta->base = base;
     m_meta->start = start;
     m_meta->end = end;

@@ -57,7 +57,8 @@ class HttpDownloader : public DownloadStrategy {
             fclose(m_meta->fp);
         }
         if (m_meta != nullptr && m_meta->base != nullptr) {
-            munmap(m_meta->base, m_meta->end - m_meta->start + 1);
+            int ret = munmap(m_meta->base, m_meta->end - m_meta->start + 1);
+            if (ret != 0) perror(nullptr);
         }
         if (m_meta != nullptr) delete m_meta;
     }
@@ -219,7 +220,8 @@ class HttpDownloader : public DownloadStrategy {
         stream << "]";
         stream << std::setiosflags(std::ios::fixed) << std::setprecision(2);
         if (down < 1024) stream << std::setw(10) << down << "B";
-        else if (down < 1024 * 1024) stream << std::setw(10) << down << "K";
+        else if (down < 1024 * 1024)
+            stream << std::setw(10) << 1.0 * down / 1024 << "K";
         else if (down < 1024 * 1024 * 1024)
             stream << std::setw(10) << 1.0 * down / 1024 / 1024 << "M";
         else
