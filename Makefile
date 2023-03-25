@@ -3,6 +3,7 @@ SRC_DIR := downloader
 BIN_DIR := bin
 INCLUDE_DIR := include
 
+# CXX := g++
 CXX := g++ -fsanitize=address -fsanitize=leak
 CXXFLAGS := -std=c++11 -g -Wall -I$(INCLUDE_DIR) -I.
 LDLIBS := -lpthread -lstdc++ -lcurl
