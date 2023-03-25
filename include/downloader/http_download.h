@@ -15,6 +15,7 @@
 #include <sstream>
 #include <vector>
 #include <cstring>
+#include <iomanip>
 
 #include "downloader/proto.h"
 #include "downloader/download_strategy.h"
@@ -26,6 +27,7 @@ namespace downloader {
 
 static std::mutex g_mutex;
 static std::mutex g_prog_mutex;
+static uint64_t g_last;
 
 class HttpDownloader : public DownloadStrategy {
  public:
@@ -174,22 +176,15 @@ class HttpDownloader : public DownloadStrategy {
         return written;
     }
 
-    // TODO(xxx) : printf? lock 太长, 一次性输出
     static int ProgressFunc(void *clientp,
                             curl_off_t dltotal, curl_off_t dlnow,
                             curl_off_t ultotal, curl_off_t ulnow) {
         WriteData* data = reinterpret_cast<WriteData*>(clientp);
         HttpDownloader* p_this =
                     reinterpret_cast<HttpDownloader*>(data->meta->m_this);
-        int total_dot = 80;
+        int total_dot = 100;
         double percent = 0.0;
-        uint64_t total = 0;
-        for (uint64_t i = 0; i < p_this->m_data_vec.size(); i++) {
-            if (p_this->m_data_vec[i]->tail > total) {
-                total = p_this->m_data_vec[i]->tail;
-            }
-        }
-        total += 1;
+        uint64_t total = data->meta->end - data->meta->start + 1;
         uint64_t down = 0, rest = 0;
         for (uint64_t i = 0; i < p_this->m_data_vec.size(); i++) {
             rest += p_this->m_data_vec[i]->tail - p_this->m_data_vec[i]->head;
@@ -200,39 +195,40 @@ class HttpDownloader : public DownloadStrategy {
         std::chrono::duration<double> elapsed = now - p_this->m_start;
         percent = 1.0 * down / total;
         int dot = round(percent * total_dot);
-        std::lock_guard<std::mutex> lk(g_prog_mutex);
-        if (p_this->m_error_flag) return 0;
-        printf("\r%-30s%3.0f%%", data->meta->file_name.c_str(), percent * 100);
-        int i = 0;
-        printf("[");
-        for (; i < dot; i++)
-            printf("=");
-        if (i < total_dot) {
-            printf(">");
-            i++;
+        std::stringstream stream;
+        stream << "\r";
+        stream << std::setw(30) << std::setiosflags(std::ios::left)
+               << data->meta->file_name.c_str();
+        stream << std::setw(3) << std::setiosflags(std::ios::right)
+               << static_cast<uint64_t>(percent * 100) << "%[";
+        for (int i = 0; i < total_dot; i++) {
+            if (i < dot) stream << "=";
+            else if (i == dot) stream << ">";
+            else
+                stream << " ";
         }
-        for (; i < total_dot; i++)
-            printf(" ");
-        printf("]       ");
-        if (down < 1024) printf("%luB", down);
-        else if (down < 1024 * 1024) printf("%3.2lfK", 1.0 * down / 1024);
+        stream << "]";
+        stream << std::setiosflags(std::ios::fixed) << std::setprecision(2);
+        if (down < 1024) stream << std::setw(10) << down << "B";
+        else if (down < 1024 * 1024) stream << std::setw(10) << down << "K";
         else if (down < 1024 * 1024 * 1024)
-            printf("%3.2lfM", 1.0 * down / 1024 / 1024);
+            stream << std::setw(10) << 1.0 * down / 1024 / 1024 << "M";
         else
-            printf("%3.2lfG", 1.0 * down / 1024 / 1024 / 1024);
-        if (down < 1024) {
-            double rate = 1.0 * down / elapsed.count();
-            printf("    %.1lfB/s", rate);
-        } else if (down < 1024 * 1024) {
-            double rate = 1.0 * down / 1024 / elapsed.count();
-            printf("    %.1lfKB/s", rate);
-        } else {
-            double rate =
-                1.0 * down / 1024 / 1024 / elapsed.count();
-            printf("    %.1lfMB/s", rate);
+            stream << std::setw(10) << 1.0 * down / 1024 / 1024 / 1024 << "G";
+        stream << std::setiosflags(std::ios::right);
+        if (down < 1024)
+            stream << std::setw(10) << 1.0 * down / elapsed.count() << "B/s";
+        else if (down < 1024 * 1024)
+            stream << std::setw(10)
+                   << 1.0 * down / 1024 / elapsed.count() << "KB/s";
+        else
+            stream << std::setw(10) << std::setprecision(1)
+                   << 1.0 * down / 1024 / 1024 / elapsed.count() << "MB/s";
+        {
+            std::lock_guard<std::mutex> lk(g_prog_mutex);
+            if (p_this->m_error_flag) return 0;
+            if (down > g_last) std::cout << stream.str() << std::flush;
         }
-        printf("%30s", " ");
-        fflush(stdout);
         return 0;
     }
 };
