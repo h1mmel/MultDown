@@ -83,7 +83,9 @@ class Downloader {
             std::cout << " ("
                       << 1.0 * length / 1024 / 1024 / 1024
                       << "G)";
-        std::cout << " [" << m_info.content_type << "]\n";
+        if (m_info.content_type == nullptr) std::cout << " [NULL]\n";
+        else
+            std::cout << " [" << m_info.content_type << "]\n";
         std::cout << "Saving to: " << "'"
                   << m_save_path.substr(m_save_path.find_last_of('/') + 1,
                                     m_save_path.size())
