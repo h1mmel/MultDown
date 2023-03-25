@@ -31,13 +31,16 @@ class HttpDownloader : public DownloadStrategy {
  public:
     HttpDownloader(int threads_number, const std::string& path)
         : m_threads_number(threads_number),
-          m_path(path),
-          m_fp(nullptr),
-          m_error_flag(false) {
+          m_error_flag(false),
+          m_meta(new MetaData),
+          m_once(),
+          m_start() {
         for (int i = 0; i < threads_number; i++) {
             m_data_vec.push_back(new WriteData);
         }
-        m_file_name = path.substr(path.find_last_of('/') + 1, path.size());
+        m_meta->file_name =
+                path.substr(path.find_last_of('/') + 1, path.size());
+        m_meta->fp = fopen(path.c_str(), "r+");
     }
 
     uint64_t Download(const std::string& url,
@@ -45,35 +48,48 @@ class HttpDownloader : public DownloadStrategy {
                       uint64_t end) override;
 
     virtual ~HttpDownloader() {
-        if (m_fp != nullptr) fclose(m_fp);
         for (uint64_t i = 0; i < m_data_vec.size(); i++) {
             delete m_data_vec[i];
         }
+        if (m_meta != nullptr && m_meta->fp != nullptr) {
+            fclose(m_meta->fp);
+        }
+        if (m_meta != nullptr && m_meta->base != nullptr) {
+            munmap(m_meta->base, m_meta->end - m_meta->start + 1);
+        }
+        if (m_meta != nullptr) delete m_meta;
     }
 
  private:
+    struct MetaData {
+        uint64_t start;
+        uint64_t end;
+        std::string file_name;
+        std::string url;
+        FILE* fp;
+        uint8_t* base;
+        void* m_this;
+    };
+
     struct WriteData {
+        MetaData* meta;
         uint64_t head;
         uint64_t tail;
         CURL* curl;
-        const char* file_name;
-        const char* url;
-        FILE* fp;
-        uint8_t* base;
 
-        void* m_this;
-        WriteData() : head(0), tail(0), curl(nullptr),
-                      file_name(nullptr), url(nullptr),
-                      fp(nullptr), m_this(nullptr)
+        WriteData() : meta(nullptr),
+                      head(0),
+                      tail(0),
+                      curl(nullptr)
         {}
     };
 
     int m_threads_number;
-    std::string m_path;
-    std::string m_file_name;
-    FILE* m_fp;
     bool m_error_flag;
+    MetaData* m_meta;
     std::vector<WriteData*> m_data_vec;
+    std::once_flag m_once;
+    std::chrono::time_point<std::chrono::high_resolution_clock> m_start;
 
  private:
     void WorkerThread(WriteData* data) {
@@ -88,7 +104,7 @@ class HttpDownloader : public DownloadStrategy {
                     data->head, data->tail);
 
             curl_easy_setopt(curl, CURLOPT_DEBUGFUNCTION, debug_callback);
-            curl_easy_setopt(curl, CURLOPT_URL, data->url);
+            curl_easy_setopt(curl, CURLOPT_URL, data->meta->url.c_str());
             // curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, LockWriteFunc);
             curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, LockFreeWriteFunc);
             curl_easy_setopt(curl, CURLOPT_WRITEDATA, data);
@@ -97,6 +113,10 @@ class HttpDownloader : public DownloadStrategy {
             curl_easy_setopt(curl, CURLOPT_XFERINFODATA, data);
             curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0);
             // curl_easy_setopt(curl, CURLOPT_VERBOSE, 1);
+
+            std::call_once(m_once, [this](){
+                m_start = std::chrono::high_resolution_clock::now();
+            });
 
             CURLcode res = curl_easy_perform(data->curl);
             if (CURLE_OK != res) {
@@ -121,16 +141,17 @@ class HttpDownloader : public DownloadStrategy {
 
     static size_t LockWriteFunc(void* ptr, size_t size, size_t nmemb,
                                 void* user_data) {
-        WriteData* data = static_cast<WriteData*>(user_data);
+        WriteData* data = reinterpret_cast<WriteData*>(user_data);
         size_t written = 0;
         std::lock_guard<std::mutex> lk(g_mutex);
         if (data->head + size * nmemb <= data->tail) {
-            fseek(data->fp, data->head, SEEK_SET);
-            written = fwrite(ptr, size, nmemb, data->fp);
+            fseek(data->meta->fp, data->head, SEEK_SET);
+            written = fwrite(ptr, size, nmemb, data->meta->fp);
             data->head += size * nmemb;
         } else {
-            fseek(data->fp, data->head, SEEK_SET);
-            written = fwrite(ptr, 1, data->tail - data->head + 1, data->fp);
+            fseek(data->meta->fp, data->head, SEEK_SET);
+            written = fwrite(ptr, 1, data->tail - data->head + 1,
+                             data->meta->fp);
             data->head = data->tail;
         }
         return written;
@@ -138,14 +159,14 @@ class HttpDownloader : public DownloadStrategy {
 
     static size_t LockFreeWriteFunc(void* ptr, size_t size, size_t nmemb,
                                     void* user_data) {
-        WriteData* data = static_cast<WriteData*>(user_data);
+        WriteData* data = reinterpret_cast<WriteData*>(user_data);
         size_t written = 0;
         if (data->head + size * nmemb <= data->tail) {
-            std::memcpy(data->head + data->base, ptr, size * nmemb);
+            std::memcpy(data->head + data->meta->base, ptr, size * nmemb);
             written = nmemb * size;
             data->head += size * nmemb;
         } else {
-            std::memcpy(data->head + data->base, ptr,
+            std::memcpy(data->head + data->meta->base, ptr,
                                     data->tail - data->head + 1);
             written = data->tail - data->head + 1;
             data->head = data->tail;
@@ -154,10 +175,12 @@ class HttpDownloader : public DownloadStrategy {
     }
 
     // TODO(xxx) : printf? lock 太长, 一次性输出
-    static int ProgressFunc(void *clientp, curl_off_t dltotal, curl_off_t dlnow,
+    static int ProgressFunc(void *clientp,
+                            curl_off_t dltotal, curl_off_t dlnow,
                             curl_off_t ultotal, curl_off_t ulnow) {
-        WriteData* data = static_cast<WriteData*>(clientp);
-        HttpDownloader* p_this = static_cast<HttpDownloader*>(data->m_this);
+        WriteData* data = reinterpret_cast<WriteData*>(clientp);
+        HttpDownloader* p_this =
+                    reinterpret_cast<HttpDownloader*>(data->meta->m_this);
         int total_dot = 80;
         double percent = 0.0;
         uint64_t total = 0;
@@ -172,11 +195,14 @@ class HttpDownloader : public DownloadStrategy {
             rest += p_this->m_data_vec[i]->tail - p_this->m_data_vec[i]->head;
         }
         down = total - rest;
+        std::chrono::time_point<std::chrono::high_resolution_clock> now
+                                    = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed = now - p_this->m_start;
         percent = 1.0 * down / total;
         int dot = round(percent * total_dot);
         std::lock_guard<std::mutex> lk(g_prog_mutex);
         if (p_this->m_error_flag) return 0;
-        printf("\r%-30s%3.0f%%", data->file_name, percent * 100);
+        printf("\r%-30s%3.0f%%", data->meta->file_name.c_str(), percent * 100);
         int i = 0;
         printf("[");
         for (; i < dot; i++)
@@ -194,6 +220,17 @@ class HttpDownloader : public DownloadStrategy {
             printf("%3.2lfM", 1.0 * down / 1024 / 1024);
         else
             printf("%3.2lfG", 1.0 * down / 1024 / 1024 / 1024);
+        if (down < 1024) {
+            double rate = 1.0 * down / elapsed.count();
+            printf("    %.1lfB/s", rate);
+        } else if (down < 1024 * 1024) {
+            double rate = 1.0 * down / 1024 / elapsed.count();
+            printf("    %.1lfKB/s", rate);
+        } else {
+            double rate =
+                1.0 * down / 1024 / 1024 / elapsed.count();
+            printf("    %.1lfMB/s", rate);
+        }
         printf("%30s", " ");
         fflush(stdout);
         return 0;

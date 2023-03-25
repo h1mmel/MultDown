@@ -9,13 +9,15 @@ uint64_t HttpDownloader::Download(const std::string& url,
     uint64_t size = len / m_threads_number;
     uint64_t head = start, tail = 0;
     std::vector<std::thread> threads_arr;
-    FILE* fp = fopen(m_path.c_str(), "r+");
-    if (fp == nullptr) return 0;
-    m_fp = fp;
-
+    if (m_meta->fp == nullptr) return 0;
     uint8_t* base = reinterpret_cast<uint8_t*>(mmap(nullptr, len, PROT_WRITE,
-                                                MAP_SHARED, fp->_fileno, 0));
+                                    MAP_SHARED, m_meta->fp->_fileno, 0));
     if (base == MAP_FAILED) return 0;
+    m_meta->base = base;
+    m_meta->start = start;
+    m_meta->end = end;
+    m_meta->url = url;
+    m_meta->m_this = reinterpret_cast<void*>(this);
 
     for (int i = 0; i < m_threads_number; i++) {
         if (len - head < size || (len - head > size && len - head < 2 * size)) {
@@ -23,13 +25,9 @@ uint64_t HttpDownloader::Download(const std::string& url,
         } else {
             tail = head + size - 1;
         }
-        m_data_vec[i]->file_name = m_file_name.c_str();
+        m_data_vec[i]->meta = m_meta;
         m_data_vec[i]->head = head;
         m_data_vec[i]->tail = tail;
-        m_data_vec[i]->url = url.c_str();
-        m_data_vec[i]->fp = fp;
-        m_data_vec[i]->m_this = this;
-        m_data_vec[i]->base = base;
         head += size;
         threads_arr.push_back(std::thread(&HttpDownloader::WorkerThread,
                                 this, m_data_vec[i]));
