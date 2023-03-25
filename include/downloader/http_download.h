@@ -33,7 +33,6 @@ class HttpDownloader : public DownloadStrategy {
  public:
     HttpDownloader(int threads_number, const std::string& path)
         : m_threads_number(threads_number),
-          m_error_flag(false),
           m_meta(new MetaData),
           m_once(),
           m_start() {
@@ -52,6 +51,7 @@ class HttpDownloader : public DownloadStrategy {
 
     virtual ~HttpDownloader() {
         for (uint64_t i = 0; i < m_data_vec.size(); i++) {
+            delete m_data_vec[i]->stat;
             delete m_data_vec[i];
         }
         if (m_meta != nullptr && m_meta->fp != nullptr) {
@@ -84,8 +84,18 @@ class HttpDownloader : public DownloadStrategy {
         {}
     };
 
+    struct Status {
+        CURLcode code;
+        int32_t response_code;
+
+        Status() : code(CURLE_OK),
+                   response_code(200)
+        {}
+    };
+
     struct WriteData {
         MetaData* meta;
+        Status* stat;
         uint64_t head;
         uint64_t tail;
         CURL* curl;
@@ -98,7 +108,6 @@ class HttpDownloader : public DownloadStrategy {
     };
 
     int m_threads_number;
-    bool m_error_flag;
     MetaData* m_meta;
     std::vector<WriteData*> m_data_vec;
     std::once_flag m_once;
@@ -106,15 +115,13 @@ class HttpDownloader : public DownloadStrategy {
 
  private:
     void WorkerThread(WriteData* data) {
-        std::stringstream stream;
         // stream << syscall(SYS_gettid) << std::endl;
-        // std::cout << stream.str();
         CURL* curl = curl_easy_init();
         if (curl) {
             data->curl = curl;
             char range[64] = {0};
-            snprintf (range, sizeof (range), "%lu-%lu",
-                    data->head, data->tail);
+            snprintf(range, sizeof (range), "%lu-%lu",
+                     data->head, data->tail);
 
             curl_easy_setopt(curl, CURLOPT_DEBUGFUNCTION, debug_callback);
             curl_easy_setopt(curl, CURLOPT_URL, data->meta->url.c_str());
@@ -131,23 +138,10 @@ class HttpDownloader : public DownloadStrategy {
                 m_start = std::chrono::high_resolution_clock::now();
             });
 
-            CURLcode res = curl_easy_perform(data->curl);
-            if (CURLE_OK != res) {
-                stream.clear();
-                stream.str("");
-                stream << "\ncurl_easy_perform() failed: "
-                        << curl_easy_strerror(res) << std::endl;
-                std::cerr << stream.str();
-            }
-            int32_t status = 0;
-            curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
-            if (status != 200 && status != 206 && m_error_flag == false) {
-                m_error_flag = true;
-                stream.clear();
-                stream.str("");
-                stream << "\nerror status: " << status << std::endl;
-                std::cerr << stream.str();
-            }
+            // curl_easy_strerror(res) << std::endl;
+            data->stat->code = curl_easy_perform(data->curl);
+            curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE,
+                              &data->stat->response_code);
             curl_easy_cleanup(data->curl);
         }
     }
@@ -238,7 +232,6 @@ class HttpDownloader : public DownloadStrategy {
                    << 1.0 * down / 1024 / 1024 / elapsed.count() << "MB/s";
         {
             std::lock_guard<std::mutex> lk(g_prog_mutex);
-            if (p_this->m_error_flag) return 0;
             if (down > g_last) std::cout << stream.str() << std::flush;
         }
         return 0;

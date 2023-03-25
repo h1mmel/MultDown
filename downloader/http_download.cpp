@@ -33,6 +33,7 @@ uint64_t HttpDownloader::Download(const std::string& url,
             tail = head + size - 1;
         }
         m_data_vec[i]->meta = m_meta;
+        m_data_vec[i]->stat = new Status;
         m_data_vec[i]->head = head;
         m_data_vec[i]->tail = tail;
         head += size;
