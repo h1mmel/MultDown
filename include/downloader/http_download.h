@@ -71,6 +71,15 @@ class HttpDownloader : public DownloadStrategy {
         FILE* fp;
         uint8_t* base;
         void* m_this;
+
+        MetaData() : start(0),
+                     end(0),
+                     file_name(),
+                     url(),
+                     fp(nullptr),
+                     base(nullptr),
+                     m_this(nullptr)
+        {}
     };
 
     struct WriteData {
