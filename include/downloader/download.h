@@ -68,45 +68,46 @@ class Downloader {
         std::tm tm_now {};
         std::cout << "--" << std::put_time(localtime_r(&t_now, &tm_now), "%c")
                   << "--  " << url << std::endl;
-        std::cout << "Length: " << m_info.content_length;
+        uint64_t length = m_info.content_length;
+        std::cout << "Length: " << length;
         std::cout << std::setprecision(1);
         std::cout << std::setiosflags(std::ios::fixed);
-        if (m_info.content_length < 1024)
-            std::cout << " (" << m_info.content_length << "B)";
-        else if (m_info.content_length < 1024 * 1024)
-            std::cout << " (" << 1.0 * m_info.content_length / 1024 << "K)";
-        else if (m_info.content_length < 1024 * 1024 * 1024)
+        if (length < 1024)
+            std::cout << " (" << length << "B)";
+        else if (length < 1024 * 1024)
+            std::cout << " (" << 1.0 * length / 1024 << "K)";
+        else if (length < 1024 * 1024 * 1024)
             std::cout << " ("
-                      << 1.0 * m_info.content_length / 1024 / 1024 << "M)";
+                      << 1.0 * length / 1024 / 1024 << "M)";
         else
             std::cout << " ("
-                      << 1.0 * m_info.content_length / 1024 / 1024 / 1024
+                      << 1.0 * length / 1024 / 1024 / 1024
                       << "G)";
         std::cout << " [" << m_info.content_type << "]\n";
         std::cout << "Saving to: " << "'"
                   << m_save_path.substr(m_save_path.find_last_of('/') + 1,
                                     m_save_path.size())
                   << "'\n" << std::endl;
-        uint64_t down = m_strategy->Download(url, 0, m_info.content_length - 1);
+        uint64_t down = m_strategy->Download(url, 0, length - 1);
         std::chrono::time_point<std::chrono::high_resolution_clock> done
                                     = std::chrono::high_resolution_clock::now();
         t_now = std::chrono::high_resolution_clock::to_time_t(done);
         std::chrono::duration<double> elapsed = done - start;
         std::cout << "\n\n"
                   << std::put_time(localtime_r(&t_now, &tm_now), "%c");
-        if (m_info.content_length < 1024) {
-            double rate = 1.0 * m_info.content_length / elapsed.count();
+        if (length < 1024) {
+            double rate = 1.0 * length / elapsed.count();
             std::cout << " (" << rate << " B/s)";
-        } else if (m_info.content_length < 1024 * 1024) {
-            double rate = 1.0 * m_info.content_length / 1024 / elapsed.count();
+        } else if (length < 1024 * 1024) {
+            double rate = 1.0 * length / 1024 / elapsed.count();
             std::cout << " (" << rate << " KB/s)";
         } else {
             double rate =
-                1.0 * m_info.content_length / 1024 / 1024 / elapsed.count();
+                1.0 * length / 1024 / 1024 / elapsed.count();
             std::cout << " (" << rate << " MB/s)";
         }
         std::cout << " - '" << m_save_path << "' saved [" << down
-                  << "/" << m_info.content_length << "]\n" << std::endl;
+                  << "/" << length << "]\n" << std::endl;
         return 0;
     }
 
@@ -138,11 +139,12 @@ class Downloader {
             res = curl_easy_perform(curl);
             if (CURLE_OK == res) {
                 double len = 0;
-                char* type = nullptr;
-                if (curl_easy_getinfo(curl,
+                if (CURLE_OK != curl_easy_getinfo(curl,
                             CURLINFO_CONTENT_LENGTH_DOWNLOAD, &len))
                     return -1;
-                if (curl_easy_getinfo(curl, CURLINFO_CONTENT_TYPE, &type))
+                char* type = nullptr;
+                if (CURLE_OK != curl_easy_getinfo(curl,
+                            CURLINFO_CONTENT_TYPE, &type))
                     return -1;
                 m_info.content_length = len;
                 m_info.content_type = new char[std::strlen(type) + 1];
