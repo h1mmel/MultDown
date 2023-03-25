@@ -33,6 +33,7 @@ class HttpDownloader : public DownloadStrategy {
  public:
     HttpDownloader(int threads_number, const std::string& path)
         : m_threads_number(threads_number),
+          m_path(path),
           m_meta(new MetaData),
           m_once(),
           m_start() {
@@ -41,8 +42,6 @@ class HttpDownloader : public DownloadStrategy {
         }
         m_meta->file_name =
                 path.substr(path.find_last_of('/') + 1, path.size());
-        m_meta->fp = fopen(path.c_str(), "r+");
-        if (m_meta->fp == nullptr) perror("fopen error");
     }
 
     uint64_t Download(const std::string& url,
@@ -108,6 +107,7 @@ class HttpDownloader : public DownloadStrategy {
     };
 
     int m_threads_number;
+    std::string m_path;
     MetaData* m_meta;
     std::vector<WriteData*> m_data_vec;
     std::once_flag m_once;
