@@ -43,6 +43,7 @@ class HttpDownloader : public DownloadStrategy {
         m_meta->file_name =
                 path.substr(path.find_last_of('/') + 1, path.size());
         m_meta->fp = fopen(path.c_str(), "r+");
+        if (m_meta->fp == nullptr) perror("fopen error");
     }
 
     uint64_t Download(const std::string& url,
@@ -134,7 +135,7 @@ class HttpDownloader : public DownloadStrategy {
             if (CURLE_OK != res) {
                 stream.clear();
                 stream.str("");
-                stream << "curl_easy_perform() failed: "
+                stream << "\ncurl_easy_perform() failed: "
                         << curl_easy_strerror(res) << std::endl;
                 std::cerr << stream.str();
             }
