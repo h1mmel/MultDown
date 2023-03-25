@@ -6,12 +6,15 @@
 #include <sys/types.h>
 #include <sys/syscall.h>
 #include <unistd.h>
+#include <sys/mman.h>
+
 #include <mutex>    // NOLINT
 #include <thread>   // NOLINT
 #include <iostream>
 #include <string>
 #include <sstream>
 #include <vector>
+#include <cstring>
 
 #include "downloader/proto.h"
 #include "downloader/download_strategy.h"
@@ -56,6 +59,8 @@ class HttpDownloader : public DownloadStrategy {
         const char* file_name;
         const char* url;
         FILE* fp;
+        uint8_t* base;
+
         void* m_this;
         WriteData() : head(0), tail(0), curl(nullptr),
                       file_name(nullptr), url(nullptr),
@@ -84,7 +89,8 @@ class HttpDownloader : public DownloadStrategy {
 
             curl_easy_setopt(curl, CURLOPT_DEBUGFUNCTION, debug_callback);
             curl_easy_setopt(curl, CURLOPT_URL, data->url);
-            curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteFunc);
+            // curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, LockWriteFunc);
+            curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, LockFreeWriteFunc);
             curl_easy_setopt(curl, CURLOPT_WRITEDATA, data);
             curl_easy_setopt(curl, CURLOPT_RANGE, range);
             curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, ProgressFunc);
@@ -113,8 +119,8 @@ class HttpDownloader : public DownloadStrategy {
         }
     }
 
-    static size_t WriteFunc(void* ptr, size_t size, size_t nmemb,
-                            void* user_data) {
+    static size_t LockWriteFunc(void* ptr, size_t size, size_t nmemb,
+                                void* user_data) {
         WriteData* data = static_cast<WriteData*>(user_data);
         size_t written = 0;
         std::lock_guard<std::mutex> lk(g_mutex);
@@ -125,6 +131,23 @@ class HttpDownloader : public DownloadStrategy {
         } else {
             fseek(data->fp, data->head, SEEK_SET);
             written = fwrite(ptr, 1, data->tail - data->head + 1, data->fp);
+            data->head = data->tail;
+        }
+        return written;
+    }
+
+    static size_t LockFreeWriteFunc(void* ptr, size_t size, size_t nmemb,
+                                    void* user_data) {
+        WriteData* data = static_cast<WriteData*>(user_data);
+        size_t written = 0;
+        if (data->head + size * nmemb <= data->tail) {
+            std::memcpy(data->head + data->base, ptr, size * nmemb);
+            written = nmemb * size;
+            data->head += size * nmemb;
+        } else {
+            std::memcpy(data->head + data->base, ptr,
+                                    data->tail - data->head + 1);
+            written = data->tail - data->head + 1;
             data->head = data->tail;
         }
         return written;

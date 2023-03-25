@@ -12,6 +12,11 @@ uint64_t HttpDownloader::Download(const std::string& url,
     FILE* fp = fopen(m_path.c_str(), "r+");
     if (fp == nullptr) return 0;
     m_fp = fp;
+
+    uint8_t* base = reinterpret_cast<uint8_t*>(mmap(nullptr, len, PROT_WRITE,
+                                                MAP_SHARED, fp->_fileno, 0));
+    if (base == MAP_FAILED) return 0;
+
     for (int i = 0; i < m_threads_number; i++) {
         if (len - head < size || (len - head > size && len - head < 2 * size)) {
             tail = len - 1;
@@ -24,6 +29,7 @@ uint64_t HttpDownloader::Download(const std::string& url,
         m_data_vec[i]->url = url.c_str();
         m_data_vec[i]->fp = fp;
         m_data_vec[i]->m_this = this;
+        m_data_vec[i]->base = base;
         head += size;
         threads_arr.push_back(std::thread(&HttpDownloader::WorkerThread,
                                 this, m_data_vec[i]));
