@@ -57,7 +57,7 @@ class Downloader {
             std::cerr << "GetFileInfo() failed" << std::endl;
             return -1;
         }
-        if (-1 == CreateFile(m_info.content_length)) {
+        if (-1 == CreateFile()) {
             std::cerr << "CreateFile() failed" << std::endl;
             return -1;
         }
@@ -154,10 +154,10 @@ class Downloader {
         return 0;
     }
 
-    int CreateFile(uint64_t len) {
+    int CreateFile() {
         std::ofstream file(m_save_path, std::ios::out);
         try {
-            file.seekp(len - 1);
+            file.seekp(m_info.content_length - 1);
             file << '\0';
         } catch (const std::ios_base::failure& e) {
             return -1;
