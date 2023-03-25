@@ -9,11 +9,14 @@ uint64_t HttpDownloader::Download(const std::string& url,
     uint64_t size = len / m_threads_number;
     uint64_t head = start, tail = 0;
     std::vector<std::thread> threads_arr;
-    if (m_meta->fp == nullptr) return 0;
+    if (m_meta->fp == nullptr) {
+        std::cerr << "fp is nullptr" << std::endl;
+        return 0;
+    }
     uint8_t* base = reinterpret_cast<uint8_t*>(mmap(nullptr, len, PROT_WRITE,
                                     MAP_SHARED, m_meta->fp->_fileno, 0));
     if (base == MAP_FAILED) {
-        perror(nullptr);
+        perror("mmap error");
         return 0;
     }
 

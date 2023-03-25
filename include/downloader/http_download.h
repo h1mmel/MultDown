@@ -58,7 +58,7 @@ class HttpDownloader : public DownloadStrategy {
         }
         if (m_meta != nullptr && m_meta->base != nullptr) {
             int ret = munmap(m_meta->base, m_meta->end - m_meta->start + 1);
-            if (ret != 0) perror(nullptr);
+            if (ret != 0) perror("munmap error");
         }
         if (m_meta != nullptr) delete m_meta;
     }
