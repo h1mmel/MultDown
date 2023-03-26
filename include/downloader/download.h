@@ -66,8 +66,8 @@ class Downloader {
         std::time_t t_now =
                     std::chrono::high_resolution_clock::to_time_t(start);
         std::tm tm_now {};
-        std::cout << "--" << std::put_time(localtime_r(&t_now, &tm_now), "%F %X")
-                  << "--  " << url << std::endl;
+        std::cout << std::put_time(localtime_r(&t_now, &tm_now), "--%F %X--")
+                  << url << std::endl;
         uint64_t length = m_info.content_length;
         std::cout << "Length: " << length;
         std::cout << std::setprecision(1);
