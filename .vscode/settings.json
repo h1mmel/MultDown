@@ -62,5 +62,6 @@
         "codecvt": "cpp",
         "filesystem": "cpp",
         "string": "cpp"
-    }
+    },
+    "C_Cpp.errorSquiggles": "enabled"
 }
