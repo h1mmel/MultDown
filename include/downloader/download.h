@@ -163,13 +163,10 @@ class Downloader {
         CURL* curl = curl_easy_init();
         CURLcode res;
         if (curl) {
-            struct curl_slist* list = nullptr;
-            // list = curl_slist_append(list, "Connection: close");
             // curl_easy_setopt(curl, CURLOPT_DEBUGFUNCTION, debug_callback);
             curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-            // curl_easy_setopt(curl, CURLOPT_HEADER, 1);
+            // TODO(xxx) : HEAD 请求网页可能导致 Content-Length 变短
             curl_easy_setopt(curl, CURLOPT_NOBODY, 1);
-            // curl_easy_setopt(curl, CURLOPT_HTTPHEADER, list);
             // curl_easy_setopt(curl, CURLOPT_VERBOSE, 1);
             res = curl_easy_perform(curl);
             if (CURLE_OK == res) {
@@ -185,7 +182,6 @@ class Downloader {
                 m_info.content_type = new char[std::strlen(type) + 1];
                 std::memcpy(m_info.content_type, type, std::strlen(type) + 1);
             }
-            curl_slist_free_all(list);
             curl_easy_cleanup(curl);
         }
         return 0;
