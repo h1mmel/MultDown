@@ -5,12 +5,13 @@ namespace downloader {
 Status HttpDownloader::Download(const std::string& url,
                                 uint64_t start,
                                 uint64_t end) {
-    uint64_t len = end - start + 1;
-    uint64_t size = len / m_threads_number;
-    uint64_t head = start, tail = 0;
     m_meta->fp = fopen(m_path.c_str(), "r+");
     if (m_meta->fp == nullptr)
         return {-1, 0, {}, {}, {CURL_LAST}, {}, {}, {strerror(errno)}};
+
+    uint64_t len = end - start + 1;
+    uint64_t size = len / m_threads_number;
+    uint64_t head = start, tail = 0;
 
     uint8_t* base = reinterpret_cast<uint8_t*>(mmap(nullptr, len, PROT_WRITE,
                                     MAP_SHARED, m_meta->fp->_fileno, 0));
