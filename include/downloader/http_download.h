@@ -7,6 +7,7 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <errno.h>
 
 #include <mutex>    // NOLINT
 #include <thread>   // NOLINT
@@ -44,13 +45,14 @@ class HttpDownloader : public DownloadStrategy {
                 path.substr(path.find_last_of('/') + 1, path.size());
     }
 
-    uint64_t Download(const std::string& url,
-                      uint64_t start,
-                      uint64_t end) override;
+    Status Download(const std::string& url,
+                    uint64_t start,
+                    uint64_t end) override;
 
     virtual ~HttpDownloader() {
         for (uint64_t i = 0; i < m_data_vec.size(); i++) {
-            delete m_data_vec[i]->stat;
+            if (m_data_vec[i]->stat != nullptr)
+                delete m_data_vec[i]->stat;
             delete m_data_vec[i];
         }
         if (m_meta != nullptr && m_meta->fp != nullptr) {
@@ -83,23 +85,15 @@ class HttpDownloader : public DownloadStrategy {
         {}
     };
 
-    struct Status {
-        CURLcode code;
-        int32_t response_code;
-
-        Status() : code(CURLE_OK),
-                   response_code(200)
-        {}
-    };
-
     struct WriteData {
         MetaData* meta;
-        Status* stat;
+        MetaStatus* stat;
         uint64_t head;
         uint64_t tail;
         CURL* curl;
 
         WriteData() : meta(nullptr),
+                      stat(nullptr),
                       head(0),
                       tail(0),
                       curl(nullptr)
@@ -127,7 +121,8 @@ class HttpDownloader : public DownloadStrategy {
             curl_easy_setopt(curl, CURLOPT_URL, data->meta->url.c_str());
             // curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, LockWriteFunc);
             curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, LockFreeWriteFunc);
-            curl_easy_setopt(curl, CURLOPT_WRITEDATA, data);
+            curl_easy_setopt(curl, CURLOPT_WRITEDATA,
+                                            reinterpret_cast<void*>(data));
             curl_easy_setopt(curl, CURLOPT_RANGE, range);
             curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, ProgressFunc);
             curl_easy_setopt(curl, CURLOPT_XFERINFODATA, data);
@@ -138,10 +133,9 @@ class HttpDownloader : public DownloadStrategy {
                 m_start = std::chrono::high_resolution_clock::now();
             });
 
-            // curl_easy_strerror(res) << std::endl;
-            data->stat->code = curl_easy_perform(data->curl);
+            data->stat->curl_code = curl_easy_perform(data->curl);
             curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE,
-                              &data->stat->response_code);
+                                            &data->stat->response_code);
             curl_easy_cleanup(data->curl);
         }
     }
@@ -235,6 +229,24 @@ class HttpDownloader : public DownloadStrategy {
             if (down > g_last) std::cout << stream.str() << std::flush;
         }
         return 0;
+    }
+
+    Status GetDownloadStatistic() {
+        Status status {};
+        for (size_t i = 0; i < m_data_vec.size(); i++) {
+            WriteData* data = m_data_vec[i];
+            if (data->stat->status < 0)
+                status.status = data->stat->status;
+            data->stat->total_down = data->head - data->stat->down.first + 1;
+            status.total_down.push_back(data->stat->total_down);
+            status.stats.push_back(data->stat->status);
+            status.curl_codes.push_back(data->stat->curl_code);
+            status.response_codes.push_back(data->stat->response_code);
+            status.down.push_back(data->stat->down);
+            status.error_msgs.push_back(data->stat->error_msg);
+            status.total += data->stat->total_down;
+        }
+        return status;
     }
 };
 

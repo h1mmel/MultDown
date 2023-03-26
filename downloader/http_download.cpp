@@ -2,25 +2,20 @@
 
 namespace downloader {
 
-uint64_t HttpDownloader::Download(const std::string& url,
-                                  uint64_t start,
-                                  uint64_t end) {
+Status HttpDownloader::Download(const std::string& url,
+                                uint64_t start,
+                                uint64_t end) {
     uint64_t len = end - start + 1;
     uint64_t size = len / m_threads_number;
     uint64_t head = start, tail = 0;
-    std::vector<std::thread> threads_arr;
     m_meta->fp = fopen(m_path.c_str(), "r+");
-    if (m_meta->fp == nullptr) {
-        perror("fopen error");
-        return 0;
-    }
+    if (m_meta->fp == nullptr)
+        return {-1, 0, {}, {}, {CURL_LAST}, {}, {}, {strerror(errno)}};
 
     uint8_t* base = reinterpret_cast<uint8_t*>(mmap(nullptr, len, PROT_WRITE,
                                     MAP_SHARED, m_meta->fp->_fileno, 0));
-    if (base == MAP_FAILED) {
-        perror("mmap error");
-        return 0;
-    }
+    if (base == MAP_FAILED)
+        return {-1, 0, {}, {}, {CURL_LAST}, {}, {}, {strerror(errno)}};
 
     m_meta->base = base;
     m_meta->start = start;
@@ -28,6 +23,7 @@ uint64_t HttpDownloader::Download(const std::string& url,
     m_meta->url = url;
     m_meta->m_this = reinterpret_cast<void*>(this);
 
+    std::vector<std::thread> threads_arr;
     for (int i = 0; i < m_threads_number; i++) {
         if (len - head < size || (len - head > size && len - head < 2 * size)) {
             tail = len - 1;
@@ -35,7 +31,8 @@ uint64_t HttpDownloader::Download(const std::string& url,
             tail = head + size - 1;
         }
         m_data_vec[i]->meta = m_meta;
-        m_data_vec[i]->stat = new Status;
+        m_data_vec[i]->stat = new MetaStatus;
+        m_data_vec[i]->stat->down = {head, tail};
         m_data_vec[i]->head = head;
         m_data_vec[i]->tail = tail;
         head += size;
@@ -47,12 +44,7 @@ uint64_t HttpDownloader::Download(const std::string& url,
         downloader::thread::JoinThreads join(&threads_arr);
     }
 
-    uint64_t rest = 0;
-    for (size_t i = 0; i < m_data_vec.size(); i++) {
-        rest += m_data_vec[i]->tail - m_data_vec[i]->head;
-    }
-
-    return len - rest;
+    return GetDownloadStatistic();
 }
 
 }   // namespace downloader

@@ -90,13 +90,13 @@ class Downloader {
                   << m_save_path.substr(m_save_path.find_last_of('/') + 1,
                                     m_save_path.size())
                   << "'\n" << std::endl;
-        uint64_t down = m_strategy->Download(url, 0, length - 1);
+        Status status = m_strategy->Download(url, 0, length - 1);
+        std::cout << "\n\n\n------Total Statistics-----\n" << std::endl;
         std::chrono::time_point<std::chrono::high_resolution_clock> done
                                     = std::chrono::high_resolution_clock::now();
         t_now = std::chrono::high_resolution_clock::to_time_t(done);
         std::chrono::duration<double> elapsed = done - start;
-        std::cout << "\n\n"
-                  << std::put_time(localtime_r(&t_now, &tm_now), "%c");
+        std::cout << std::put_time(localtime_r(&t_now, &tm_now), "%c");
         if (length < 1024) {
             double rate = 1.0 * length / elapsed.count();
             std::cout << " (" << rate << " B/s)";
@@ -108,8 +108,32 @@ class Downloader {
                 1.0 * length / 1024 / 1024 / elapsed.count();
             std::cout << " (" << rate << " MB/s)";
         }
-        std::cout << " - '" << m_save_path << "' saved [" << down
+        std::cout << " - '" << m_save_path << "' saved [" << status.total
                   << "/" << length << "]\n" << std::endl;
+        for (int i = 0; i < m_threads; i++) {
+            std::cout << "Thread "
+                      << std::setw(3) << std::setiosflags(std::ios::right)
+                      << i << ": ";
+            std::cout << std::setw(15) << std::setiosflags(std::ios::right)
+                      << status.down[i].first;
+            std::cout << "-" << std::resetiosflags(std::ios::right);
+            std::cout << std::setw(15) << std::setiosflags(std::ios::left)
+                      << status.down[i].second;
+            std::cout << ", ";
+            uint64_t total = status.down[i].second - status.down[i].first + 1;
+            double rate = 1.0 * status.total_down[i] / total;
+            std::cout << std::setw(3) << std::setiosflags(std::ios::right)
+                      << static_cast<uint64_t>(rate * 100) << "%";
+            if (status.curl_codes[i] != CURLE_OK)
+                std::cout << ", curl: "
+                          << curl_easy_strerror(status.curl_codes[i]);
+            else
+                std::cout << ", curl: OK";
+            std::cout << ", response: " << status.response_codes[i];
+            std::cout << ", status: " << status.stats[i];
+            std::cout << std::endl;
+        }
+        std::cout << "\n--------------------------\n" << std::endl;
         return 0;
     }
 
