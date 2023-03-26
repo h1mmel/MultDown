@@ -7,17 +7,18 @@
 
 namespace downloader {
 
-static void dump(const char *text,
-                FILE *stream, unsigned char *ptr,
-                uint32_t size) {
+static void dump(const char* text,
+                 FILE* stream, uint8_t* ptr,
+                 uint32_t size) {
     uint32_t i = 0, c = 0;
     uint32_t width = 0x10;
 
     fprintf(stream, "%s, %10.10d bytes (0x%8.8x)\n",
-            text, (int32_t)size, (int32_t)size);
+            text, static_cast<int32_t>(size),
+            static_cast<int32_t>(size));
 
     for (i = 0; i < size; i += width) {
-        fprintf(stream, "%4.4x: ", (int32_t)i);
+        fprintf(stream, "%4.4x: ", static_cast<int32_t>(i));
         for (c = 0; c < width; c++) {
             if (i + c < size)
                 fprintf(stream, "%02x ", ptr[i+c]);
@@ -33,11 +34,11 @@ static void dump(const char *text,
     }
 }
 
-static int debug_callback(CURL *handle, curl_infotype type,
-            char *data, uint32_t size, void *clientp) {
-    const char *text;
-    (void)handle;
-    (void)clientp;
+static int debug_callback(CURL* handle, curl_infotype type,
+                          char* data, uint32_t size, void* clientp) {
+    const char* text = nullptr;
+    static_cast<void>(handle);
+    static_cast<void>(clientp);
 
     switch (type) {
         case CURLINFO_TEXT:
@@ -65,7 +66,7 @@ static int debug_callback(CURL *handle, curl_infotype type,
             break;
     }
 
-    dump(text, stderr, (unsigned char *)data, size);
+    dump(text, stderr, reinterpret_cast<uint8_t*>(data), size);
     return 0;
 }
 
