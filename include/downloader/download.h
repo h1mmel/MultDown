@@ -66,7 +66,7 @@ class Downloader {
         std::time_t t_now =
                     std::chrono::high_resolution_clock::to_time_t(start);
         std::tm tm_now {};
-        std::cout << "--" << std::put_time(localtime_r(&t_now, &tm_now), "%c")
+        std::cout << "--" << std::put_time(localtime_r(&t_now, &tm_now), "%F %X")
                   << "--  " << url << std::endl;
         uint64_t length = m_info.content_length;
         std::cout << "Length: " << length;
@@ -96,7 +96,7 @@ class Downloader {
                                     = std::chrono::high_resolution_clock::now();
         t_now = std::chrono::high_resolution_clock::to_time_t(done);
         std::chrono::duration<double> elapsed = done - start;
-        std::cout << std::put_time(localtime_r(&t_now, &tm_now), "%c");
+        std::cout << std::put_time(localtime_r(&t_now, &tm_now), "%F %X");
         if (length < 1024) {
             double rate = 1.0 * length / elapsed.count();
             std::cout << " (" << rate << " B/s)";
