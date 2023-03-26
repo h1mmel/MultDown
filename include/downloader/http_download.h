@@ -123,7 +123,10 @@ class HttpDownloader : public DownloadStrategy {
             curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, LockFreeWriteFunc);
             curl_easy_setopt(curl, CURLOPT_WRITEDATA,
                                             reinterpret_cast<void*>(data));
-            curl_easy_setopt(curl, CURLOPT_RANGE, range);
+            HttpDownloader* http
+                        = reinterpret_cast<HttpDownloader*>(data->meta->m_this);
+            if (http->m_threads_number != 1)
+                curl_easy_setopt(curl, CURLOPT_RANGE, range);
             curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, ProgressFunc);
             curl_easy_setopt(curl, CURLOPT_XFERINFODATA, data);
             curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0);
