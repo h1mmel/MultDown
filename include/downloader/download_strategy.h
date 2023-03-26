@@ -50,7 +50,7 @@ struct Status {
     std::vector<CURLcode> curl_codes;
     std::vector<int64_t> response_codes;
     std::vector<std::pair<uint64_t, uint64_t>> down;
-    std::vector<std::string> error_msgs;
+    std::string error_msg;
 
     Status() : status(0),
                total(0),
@@ -59,7 +59,7 @@ struct Status {
                curl_codes(),
                response_codes(),
                down(),
-               error_msgs()
+               error_msg()
     {}
 
     Status(int32_t status,
@@ -69,7 +69,7 @@ struct Status {
            std::vector<CURLcode> curl_codes,
            std::vector<int64_t> response_codes,
            std::vector<std::pair<uint64_t, uint64_t>> down,
-           std::vector<std::string> error_msg)
+           std::string error_msg)
            : status(status),
              total(total),
              total_down(total_down),
@@ -77,7 +77,7 @@ struct Status {
              curl_codes(curl_codes),
              response_codes(response_codes),
              down(down),
-             error_msgs(error_msg)
+             error_msg(error_msg)
     {}
 };
 

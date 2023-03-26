@@ -243,7 +243,6 @@ class HttpDownloader : public DownloadStrategy {
             status.curl_codes.push_back(data->stat->curl_code);
             status.response_codes.push_back(data->stat->response_code);
             status.down.push_back(data->stat->down);
-            status.error_msgs.push_back(data->stat->error_msg);
             status.total += data->stat->total_down;
         }
         return status;
