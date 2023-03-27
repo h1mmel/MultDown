@@ -51,12 +51,13 @@ class Downloader {
 
 template<typename ProtoType>
 struct Downloader<ProtoType>::FileInfo {
-    char* content_type;
-    uint64_t content_length;
     FileInfo() : content_type(nullptr), content_length(0) {}
     ~FileInfo() {
         if (content_type != nullptr) delete []content_type;
     }
+
+    char* content_type;
+    uint64_t content_length;
 };
 
 template<typename ProtoType>

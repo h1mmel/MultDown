@@ -2,5 +2,6 @@
 
 namespace downloader {
 
+DownloadStrategy::~DownloadStrategy() = default;
 
 }   // namespace downloader
