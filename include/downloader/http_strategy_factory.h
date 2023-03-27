@@ -10,12 +10,15 @@ namespace downloader {
 
 class HttpStrategyFactory : public StrategyFactory {
  public:
-    HttpStrategyFactory() {}
+    HttpStrategyFactory() = default;
+
+    HttpStrategyFactory(const HttpStrategyFactory&) = delete;
+    HttpStrategyFactory& operator=(const HttpStrategyFactory&) = delete;
+
+    ~HttpStrategyFactory() override;
+
     DownloadStrategy* NewStrategy(int threads_number,
-                                  const std::string& path) override {
-        return new HttpDownloader(threads_number, path);
-    }
-    ~HttpStrategyFactory() {}
+                                  const std::string& path) override;
 };
 
 }   // namespace downloader

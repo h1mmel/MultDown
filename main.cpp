@@ -11,7 +11,7 @@
 void helper(cmdline::parser* parser, int argc, char* argv[]);
 
 using downloader::Downloader;
-using proto::Http;
+using downloader::proto::Http;
 
 int main(int argc, char* argv[]) {
     cmdline::parser p;

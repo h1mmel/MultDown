@@ -3,14 +3,22 @@
 
 #include "downloader/proto.h"
 
+namespace downloader {
+
 namespace proto {
 
 class Http : public ProtoBase {
  public:
-    Http() {}
-    virtual ~Http() {}
+    Http() = default;
+
+    Http(const Http&) = delete;
+    Http& operator=(const Http&) = delete;
+
+    ~Http() override;
 };
 
 }   // namespace proto
+
+}   // namespace downloader
 
 #endif  // _HTTP_H_ NOLINT
