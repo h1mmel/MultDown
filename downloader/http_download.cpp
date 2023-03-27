@@ -159,7 +159,10 @@ int HttpDownloader::ProgressFunc(void *clientp,
                 << 1.0 * down / 1024 / 1024 / elapsed.count() << "MB/s";
     {
         std::lock_guard<std::mutex> lk(g_prog_mutex);
-        if (down > g_last) std::cout << stream.str() << std::flush;
+        if (down > g_last) {
+            std::cout << stream.str() << std::flush;
+            g_last = down;
+        }
     }
     return 0;
 }
