@@ -71,6 +71,6 @@ void helper(cmdline::parser* parser, int argc, char* argv[]) {
     parser->add<std::string>("threads", 't', "set threads, default is 8",
                             false, "");
     parser->add("help", 'h', "print this message");
-    parser->set_program_name("downloader");
+    parser->set_program_name("mdown");
     parser->parse_check(argc, argv);
 }
