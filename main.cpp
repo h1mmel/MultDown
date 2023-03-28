@@ -54,6 +54,8 @@ int main(int argc, char* argv[]) {
             }
         }
     }
+    if (p.exist("debug"))
+        downloader::is_debug = true;
     if (proto.empty() || proto.compare("http") == 0) {
         Downloader<Http> down(threads_number, path);
         if (down.DoDownload(url) != 0) {
@@ -64,13 +66,13 @@ int main(int argc, char* argv[]) {
     return 0;
 }
 
-// TODO (xxx) : 添加 debug 选项
 void helper(cmdline::parser* parser, int argc, char* argv[]) {
     parser->add<std::string>("url", 'u', "url", true, "");
     parser->add<std::string>("proto", 'p', "protocol type", false, "");
     parser->add<std::string>("output", 'o', "output file", false, "");
     parser->add<std::string>("threads", 't', "set threads, default is 8",
                             false, "");
+    parser->add("debug", 0, "print debug info");
     parser->add("help", 'h', "print this message");
     parser->set_program_name("mdown");
     parser->parse_check(argc, argv);

@@ -39,11 +39,13 @@ static int debug_callback(CURL* handle, curl_infotype type,
     const char* text = nullptr;
     static_cast<void>(handle);
     static_cast<void>(clientp);
+    FILE* stream = reinterpret_cast<FILE*>(clientp);
+    if (stream == nullptr) stream = stderr;
 
     switch (type) {
         case CURLINFO_TEXT:
-            fputs("== Info: ", stderr);
-            fwrite(data, size, 1, stderr);
+            fputs("== Info: ", stream);
+            fwrite(data, size, 1, stream);
         default:
             return 0;
         case CURLINFO_HEADER_OUT:
@@ -66,7 +68,7 @@ static int debug_callback(CURL* handle, curl_infotype type,
             break;
     }
 
-    dump(text, stderr, reinterpret_cast<uint8_t*>(data), size);
+    dump(text, stream, reinterpret_cast<uint8_t*>(data), size);
     return 0;
 }
 

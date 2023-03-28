@@ -15,11 +15,15 @@
 #include "downloader/download_strategy.h"
 #include "downloader/strategy_factory.h"
 #include "downloader/util.h"
+#include "downloader/debug_functions.h"
+#include "downloader/debug.h"
 
 namespace downloader {
 
 class DownloadStrategy;
 class StrategyFactory;
+
+extern bool is_debug;
 
 template<typename ProtoType>
 class Downloader {
@@ -65,11 +69,16 @@ int Downloader<ProtoType>::GetFileInfo(const std::string& url) {
     CURL* curl = curl_easy_init();
     CURLcode res;
     if (curl) {
-        // curl_easy_setopt(curl, CURLOPT_DEBUGFUNCTION, debug_callback);
+        if (downloader::is_debug) {
+            curl_easy_setopt(curl, CURLOPT_VERBOSE, 1);
+            curl_easy_setopt(curl, CURLOPT_DEBUGFUNCTION, debug_callback);
+            debug::Debug& dbg = debug::Debug::GetDebugInstance();
+            void* data = reinterpret_cast<void*>(dbg.GetFilePointer());
+            curl_easy_setopt(curl, CURLOPT_DEBUGDATA, data);
+        }
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
         // TODO(xxx) : HEAD 请求网页可能导致 Content-Length 变短
         curl_easy_setopt(curl, CURLOPT_NOBODY, 1);
-        // curl_easy_setopt(curl, CURLOPT_VERBOSE, 1);
         res = curl_easy_perform(curl);
         if (CURLE_OK == res) {
             double len = 0;

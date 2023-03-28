@@ -11,6 +11,8 @@
 #include "downloader/http_download_strategy.h"
 #include "downloader/debug_functions.h"
 #include "downloader/join_threads.h"
+#include "downloader/download.h"
+#include "downloader/debug.h"
 
 namespace downloader {
 
@@ -57,7 +59,14 @@ void HttpDownloadStrategy::WorkerThread(WriteData* data) {
         snprintf(range, sizeof (range), "%lu-%lu",
                     data->head, data->tail);
 
-        // TODO (xxx) : 解决 302 跳转问题
+        // TODO(xxx) : 解决 302 跳转问题
+        if (downloader::is_debug) {
+            curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+            curl_easy_setopt(curl, CURLOPT_DEBUGFUNCTION, debug_callback);
+            debug::Debug& dbg = debug::Debug::GetDebugInstance();
+            void* data = reinterpret_cast<void*>(dbg.GetFilePointer());
+            curl_easy_setopt(curl, CURLOPT_DEBUGDATA, data);
+        }
         curl_easy_setopt(curl, CURLOPT_DEBUGFUNCTION, debug_callback);
         curl_easy_setopt(curl, CURLOPT_URL, data->meta->url.c_str());
         // curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, LockWriteFunc);
@@ -70,8 +79,7 @@ void HttpDownloadStrategy::WorkerThread(WriteData* data) {
             curl_easy_setopt(curl, CURLOPT_RANGE, range);
         curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, ProgressFunc);
         curl_easy_setopt(curl, CURLOPT_XFERINFODATA, data);
-        curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0);
-        // curl_easy_setopt(curl, CURLOPT_VERBOSE, 1);
+        curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
 
         std::call_once(m_once, [this](){
             m_start = std::chrono::high_resolution_clock::now();
