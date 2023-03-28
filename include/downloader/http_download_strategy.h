@@ -1,5 +1,5 @@
-#ifndef _HTTP_DOWNLOAD_H_   // NOLINT
-#define _HTTP_DOWNLOAD_H_   // NOLINT
+#ifndef _HTTP_DOWNLOAD_STRATEGY_H_   // NOLINT
+#define _HTTP_DOWNLOAD_STRATEGY_H_   // NOLINT
 
 #include <mutex>    // NOLINT
 #include <string>
@@ -12,11 +12,11 @@ namespace downloader {
 static std::mutex g_mutex;
 static std::mutex g_prog_mutex;
 
-class HttpDownloader : public DownloadStrategy {
+class HttpDownloadStrategy : public DownloadStrategy {
  public:
-    HttpDownloader(int threads_number, const std::string& path);
+    HttpDownloadStrategy(int threads_number, const std::string& path);
 
-    virtual ~HttpDownloader();
+    virtual ~HttpDownloadStrategy();
 
     Status Download(const std::string& url,
                     uint64_t start,
@@ -50,4 +50,4 @@ class HttpDownloader : public DownloadStrategy {
 
 }   // namespace downloader
 
-#endif  // _HTTP_DOWNLOAD_H_    NOLINT
+#endif  // _HTTP_DOWNLOAD_STRATEGY_H_    NOLINT

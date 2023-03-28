@@ -6,7 +6,7 @@ HttpDownloadStrategyFactory::~HttpDownloadStrategyFactory() = default;
 
 DownloadStrategy* HttpDownloadStrategyFactory::NewStrategy(
         int threads_number, const std::string& path) {
-    return new HttpDownloader(threads_number, path);
+    return new HttpDownloadStrategy(threads_number, path);
 }
 
 }   // namespace downloader
