@@ -2,7 +2,7 @@
 #define _UTIL_H_    // NOLINT
 
 #include "downloader/http.h"
-#include "downloader/http_strategy_factory.h"
+#include "downloader/http_download_strategy_factory.h"
 
 namespace downloader {
 
@@ -12,7 +12,7 @@ template<typename ProtoType> struct GetFactory;
 
 template<> struct GetFactory<proto::Http> {
     static downloader::StrategyFactory* GetRealFactory() {
-        return new downloader::HttpStrategyFactory();
+        return new downloader::HttpDownloadStrategyFactory();
     }
 };
 
