@@ -1,22 +1,9 @@
 #ifndef _HTTP_DOWNLOAD_H_   // NOLINT
 #define _HTTP_DOWNLOAD_H_   // NOLINT
 
-#include <math.h>
-#include <curl/curl.h>
-#include <sys/types.h>
-#include <sys/syscall.h>
-#include <unistd.h>
-#include <sys/mman.h>
-#include <errno.h>
-
 #include <mutex>    // NOLINT
-#include <thread>   // NOLINT
-#include <iostream>
 #include <string>
-#include <sstream>
 #include <vector>
-#include <cstring>
-#include <iomanip>
 
 #include "downloader/download_strategy.h"
 
@@ -51,7 +38,7 @@ class HttpDownloader : public DownloadStrategy {
                             curl_off_t dltotal, curl_off_t dlnow,
                             curl_off_t ultotal, curl_off_t ulnow);
 
-    Status GetDownloadStatistic();
+    Status GetDownloadStatistic() const;
 
     int m_threads_number;
     std::string m_path;

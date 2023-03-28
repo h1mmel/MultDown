@@ -1,4 +1,14 @@
-#include "downloader/http_download.h"
+#include <curl/curl.h>
+#include <math.h>
+#include <sys/mman.h>
+
+#include <thread>   // NOLINT
+#include <sstream>
+#include <iostream>
+#include <cstring>  // memcopy
+#include <iomanip>  // std::setw std::setiosflags std::setprecision
+
+#include "downloader/http_download_strategy.h"
 #include "downloader/debug_functions.h"
 #include "downloader/join_threads.h"
 
@@ -167,7 +177,7 @@ int HttpDownloader::ProgressFunc(void *clientp,
     return 0;
 }
 
-Status HttpDownloader::GetDownloadStatistic() {
+Status HttpDownloader::GetDownloadStatistic() const {
     Status status {};
     for (size_t i = 0; i < m_data_vec.size(); i++) {
         WriteData* data = m_data_vec[i];
