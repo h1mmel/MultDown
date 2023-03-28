@@ -1,6 +1,8 @@
 #ifndef _STATUS_H_  // NOLINT
 #define _STATUS_H_
 
+#include <curl/curl.h>
+
 #include <string>
 #include <vector>
 #include <utility>

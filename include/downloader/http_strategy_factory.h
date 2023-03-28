@@ -4,7 +4,7 @@
 #include <string>
 
 #include "downloader/strategy_factory.h"
-#include "downloader/http_download.h"
+#include "downloader/http_download_strategy.h"
 
 namespace downloader {
 

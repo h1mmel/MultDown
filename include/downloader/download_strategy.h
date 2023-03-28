@@ -1,8 +1,6 @@
 #ifndef _DOWNLOAD_STRATEGY_H_   // NOLINT
 #define _DOWNLOAD_STRATEGY_H_
 
-#include <curl/curl.h>
-
 #include <string>
 
 #include "downloader/status.h"
