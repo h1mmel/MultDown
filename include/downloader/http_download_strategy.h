@@ -9,6 +9,7 @@
 
 namespace downloader {
 
+// TODO(xxx) : 尚未改成单例模式，所有对象共享锁
 static std::mutex g_mutex;
 static std::mutex g_prog_mutex;
 

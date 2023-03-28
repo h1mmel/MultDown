@@ -57,6 +57,7 @@ void HttpDownloadStrategy::WorkerThread(WriteData* data) {
         snprintf(range, sizeof (range), "%lu-%lu",
                     data->head, data->tail);
 
+        // TODO (xxx) : 解决 302 跳转问题
         curl_easy_setopt(curl, CURLOPT_DEBUGFUNCTION, debug_callback);
         curl_easy_setopt(curl, CURLOPT_URL, data->meta->url.c_str());
         // curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, LockWriteFunc);

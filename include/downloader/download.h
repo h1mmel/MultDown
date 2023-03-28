@@ -89,6 +89,7 @@ int Downloader<ProtoType>::GetFileInfo(const std::string& url) {
     return 0;
 }
 
+// TODO(xxx) : 稀疏文件，未真正生效
 template<typename ProtoType>
 int Downloader<ProtoType>::CreateFile() {
     std::ofstream file(m_save_path, std::ios::out);
