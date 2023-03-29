@@ -78,17 +78,21 @@ int Downloader<ProtoType>::GetFileInfo(const std::string& url) {
         }
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
         // TODO(xxx) : HEAD 请求网页可能导致 Content-Length 变短
-        curl_easy_setopt(curl, CURLOPT_NOBODY, 1);
+        curl_easy_setopt(curl, CURLOPT_NOBODY, 1L);
         res = curl_easy_perform(curl);
         if (CURLE_OK == res) {
             double len = 0;
             if (CURLE_OK != curl_easy_getinfo(curl,
-                        CURLINFO_CONTENT_LENGTH_DOWNLOAD, &len))
+                        CURLINFO_CONTENT_LENGTH_DOWNLOAD, &len)) {
+                curl_easy_cleanup(curl);
                 return -1;
+            }
             char* type = nullptr;
             if (CURLE_OK != curl_easy_getinfo(curl,
-                        CURLINFO_CONTENT_TYPE, &type))
+                        CURLINFO_CONTENT_TYPE, &type)) {
+                curl_easy_cleanup(curl);
                 return -1;
+            }
             m_info.content_length = len;
             m_info.content_type = new char[std::strlen(type) + 1];
             std::memcpy(m_info.content_type, type, std::strlen(type) + 1);
