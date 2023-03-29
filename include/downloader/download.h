@@ -70,7 +70,7 @@ int Downloader<ProtoType>::GetFileInfo(const std::string& url) {
     CURLcode res;
     if (curl) {
         if (downloader::is_debug) {
-            curl_easy_setopt(curl, CURLOPT_VERBOSE, 1);
+            curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
             curl_easy_setopt(curl, CURLOPT_DEBUGFUNCTION, debug_callback);
             debug::Debug& dbg = debug::Debug::GetDebugInstance();
             void* data = reinterpret_cast<void*>(dbg.GetFilePointer());
@@ -94,8 +94,10 @@ int Downloader<ProtoType>::GetFileInfo(const std::string& url) {
                 return -1;
             }
             m_info.content_length = len;
-            m_info.content_type = new char[std::strlen(type) + 1];
-            std::memcpy(m_info.content_type, type, std::strlen(type) + 1);
+            if (type != nullptr) {
+                m_info.content_type = new char[std::strlen(type) + 1];
+                std::memcpy(m_info.content_type, type, std::strlen(type) + 1);
+            }
         }
         curl_easy_cleanup(curl);
     }
