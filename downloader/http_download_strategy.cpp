@@ -67,7 +67,6 @@ void HttpDownloadStrategy::WorkerThread(WriteData* data) {
             void* data = reinterpret_cast<void*>(dbg.GetFilePointer());
             curl_easy_setopt(curl, CURLOPT_DEBUGDATA, data);
         }
-        curl_easy_setopt(curl, CURLOPT_DEBUGFUNCTION, debug_callback);
         curl_easy_setopt(curl, CURLOPT_URL, data->meta->url.c_str());
         // curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, LockWriteFunc);
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, LockFreeWriteFunc);
