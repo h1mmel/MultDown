@@ -61,7 +61,7 @@ struct Downloader<ProtoType>::FileInfo {
     }
 
     char* content_type;
-    uint64_t content_length;
+    int64_t content_length;
 };
 
 template<typename ProtoType>
@@ -87,13 +87,15 @@ int Downloader<ProtoType>::GetFileInfo(const std::string& url) {
                 curl_easy_cleanup(curl);
                 return -1;
             }
+            if (len == -1) m_info.content_length = 0;
+            else
+                m_info.content_length = static_cast<int64_t>(len);
             char* type = nullptr;
             if (CURLE_OK != curl_easy_getinfo(curl,
                         CURLINFO_CONTENT_TYPE, &type)) {
                 curl_easy_cleanup(curl);
                 return -1;
             }
-            m_info.content_length = len;
             if (type != nullptr) {
                 m_info.content_type = new char[std::strlen(type) + 1];
                 std::memcpy(m_info.content_type, type, std::strlen(type) + 1);
@@ -158,7 +160,7 @@ int Downloader<ProtoType>::DoDownload(const std::string& url) {
     std::tm tm_now {};
     std::cout << std::put_time(localtime_r(&t_now, &tm_now), "--%F %X--")
                 << "  " << url << std::endl;
-    uint64_t length = m_info.content_length;
+    int64_t length = m_info.content_length;
     std::cout << "Length: " << length;
     std::cout << std::setprecision(1);
     std::cout << std::setiosflags(std::ios::fixed);
