@@ -17,6 +17,7 @@
 #include "downloader/util.h"
 #include "downloader/debug_functions.h"
 #include "downloader/debug.h"
+#include "downloader/http.h"
 
 namespace downloader {
 
@@ -43,14 +44,17 @@ class Downloader {
  private:
     struct FileInfo;
 
+    static size_t HeaderCallback(char* buffer, size_t size,
+                                 size_t nitems, void* userdata);
+
     int GetFileInfo(const std::string& url);
 
     int CreateFile();
 
-    DownloadStrategy* m_strategy;
-    int m_threads;
-    std::string m_save_path;
-    FileInfo m_info;
+    DownloadStrategy* strategy_;
+    int threads_;
+    std::string save_path_;
+    proto::Http* http_header_;
 };
 
 template<typename ProtoType>
@@ -65,9 +69,41 @@ struct Downloader<ProtoType>::FileInfo {
 };
 
 template<typename ProtoType>
+size_t Downloader<ProtoType>::HeaderCallback(char* buffer, size_t size,
+                                             size_t nitems, void* userdata) {
+    proto::Http* data = reinterpret_cast<proto::Http*>(userdata);
+    std::string line(buffer, size * nitems - 2);
+    std::string::size_type n = 0;
+
+    n = line.find("Content-Encoding: ");
+    if (n != std::string::npos) {
+        n = std::strlen("Content-Encoding: ");
+        data->SetContentEncoding(line.substr(n));
+    }
+
+    n = line.find("Content-Type: ");
+    if (n != std::string::npos) {
+        n = std::strlen("Content-Type: ");
+        std::string::size_type m = line.find("; ");
+        if (m != std::string::npos)
+            data->SetContentType(line.substr(n, m - n), line.substr(m + 2));
+        else
+            data->SetContentType(line.substr(n), std::string());
+    }
+
+    n = line.find("Content-Length: ");
+    if (n != std::string::npos) {
+        n = std::strlen("Content-Length: ");
+        data->SetContentLength(
+                    static_cast<uint64_t>(std::stoull(line.substr(n))));
+    }
+
+    return nitems * size;
+}
+
+template<typename ProtoType>
 int Downloader<ProtoType>::GetFileInfo(const std::string& url) {
     CURL* curl = curl_easy_init();
-    CURLcode res;
     if (curl) {
         if (downloader::is_debug) {
             curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
@@ -78,29 +114,11 @@ int Downloader<ProtoType>::GetFileInfo(const std::string& url) {
         }
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
         // TODO(xxx) : HEAD 请求网页可能导致 Content-Length 变短
+        curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, HeaderCallback);
+        curl_easy_setopt(curl, CURLOPT_HEADERDATA,
+                                reinterpret_cast<void*>(http_header_));
         curl_easy_setopt(curl, CURLOPT_NOBODY, 1L);
-        res = curl_easy_perform(curl);
-        if (CURLE_OK == res) {
-            double len = 0;
-            if (CURLE_OK != curl_easy_getinfo(curl,
-                        CURLINFO_CONTENT_LENGTH_DOWNLOAD, &len)) {
-                curl_easy_cleanup(curl);
-                return -1;
-            }
-            if (len == -1) m_info.content_length = 0;
-            else
-                m_info.content_length = static_cast<int64_t>(len);
-            char* type = nullptr;
-            if (CURLE_OK != curl_easy_getinfo(curl,
-                        CURLINFO_CONTENT_TYPE, &type)) {
-                curl_easy_cleanup(curl);
-                return -1;
-            }
-            if (type != nullptr) {
-                m_info.content_type = new char[std::strlen(type) + 1];
-                std::memcpy(m_info.content_type, type, std::strlen(type) + 1);
-            }
-        }
+        curl_easy_perform(curl);
         curl_easy_cleanup(curl);
     }
     return 0;
@@ -109,9 +127,9 @@ int Downloader<ProtoType>::GetFileInfo(const std::string& url) {
 // TODO(xxx) : 稀疏文件，未真正生效
 template<typename ProtoType>
 int Downloader<ProtoType>::CreateFile() {
-    std::ofstream file(m_save_path, std::ios::out);
+    std::ofstream file(save_path_, std::ios::out);
     try {
-        file.seekp(m_info.content_length - 1);
+        file.seekp(http_header_->GetContentLength() - 1);
         file << '\0';
     } catch (const std::ios_base::failure& e) {
         return -1;
@@ -121,16 +139,16 @@ int Downloader<ProtoType>::CreateFile() {
 
 template<typename ProtoType>
 Downloader<ProtoType>::Downloader(int threads_number, const std::string& path)
-        : m_strategy(nullptr),
-          m_threads(threads_number),
-          m_save_path(path),
-          m_info() {
+        : strategy_(nullptr),
+          threads_(threads_number),
+          save_path_(path),
+          http_header_(new proto::Http) {
     StrategyFactory* factory =
                     util::GetFactory<value_type>::GetRealFactory();
-    if (m_save_path.back() == '/') {
-        m_save_path += "index.html";
+    if (save_path_.back() == '/') {
+        save_path_ += "index.html";
     }
-    this->m_strategy = factory->NewStrategy(threads_number, m_save_path);
+    this->strategy_ = factory->NewStrategy(threads_number, save_path_);
     delete factory;
     curl_global_init(CURL_GLOBAL_ALL);
     std::cout << "libcurl version: " << curl_version() << std::endl;
@@ -138,7 +156,8 @@ Downloader<ProtoType>::Downloader(int threads_number, const std::string& path)
 
 template<typename ProtoType>
 Downloader<ProtoType>::~Downloader() {
-    delete this->m_strategy;
+    if (strategy_ != nullptr) delete strategy_;
+    if (http_header_ != nullptr) delete http_header_;
     curl_global_cleanup();
 }
 
@@ -160,7 +179,7 @@ int Downloader<ProtoType>::DoDownload(const std::string& url) {
     std::tm tm_now {};
     std::cout << std::put_time(localtime_r(&t_now, &tm_now), "--%F %X--")
                 << "  " << url << std::endl;
-    int64_t length = m_info.content_length;
+    uint64_t length = http_header_->GetContentLength();
     std::cout << "Length: " << length;
     std::cout << std::setprecision(1);
     std::cout << std::setiosflags(std::ios::fixed);
@@ -175,16 +194,14 @@ int Downloader<ProtoType>::DoDownload(const std::string& url) {
         std::cout << " ("
                     << 1.0 * length / 1024 / 1024 / 1024
                     << "G)";
-    if (m_info.content_type == nullptr) std::cout << " [NULL]\n";
-    else
-        std::cout << " [" << m_info.content_type << "]\n";
+    std::cout << " [" << http_header_->GetContentType() << "]\n";
     std::cout << "Saving to: " << "'"
-                << m_save_path.substr(m_save_path.find_last_of('/') + 1,
-                                m_save_path.size())
+                << save_path_.substr(save_path_.find_last_of('/') + 1,
+                                save_path_.size())
                 << "'\n" << std::endl;
     Status status {};
     if (length >= 1)
-        status = m_strategy->Download(url, 0, length - 1);
+        status = strategy_->Download(url, 0, length - 1);
     else
         status = {-1, 0, {}, {}, {CURL_LAST}, {}, {}, "warn: 0 bytes"};
     std::cout << "\n\n------Total Statistics-----\n" << std::endl;
@@ -204,12 +221,12 @@ int Downloader<ProtoType>::DoDownload(const std::string& url) {
             1.0 * length / 1024 / 1024 / elapsed.count();
         std::cout << " (" << rate << " MB/s)";
     }
-    std::cout << " - '" << m_save_path << "' saved [" << status.total
+    std::cout << " - '" << save_path_ << "' saved [" << status.total
                 << "/" << length << "]\n" << std::endl;
     if (status.status != 0) {
         std::cout << status.error_msg << std::endl;
     } else {
-        for (int i = 0; i < m_threads; i++) {
+        for (int i = 0; i < threads_; i++) {
             std::cout << "Thread "
                         << std::setw(3) << std::setiosflags(std::ios::right)
                         << i << ": ";
