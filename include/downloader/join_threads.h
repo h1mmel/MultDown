@@ -11,18 +11,18 @@ namespace thread {
 class JoinThreads {
  public:
     explicit JoinThreads(std::vector<std::thread>* threads)
-        : m_threads(threads) { }
+        : threads_(threads) { }
 
     ~JoinThreads() {
-        for (uint32_t i = 0; i < m_threads->size(); i++) {
-            if ((*m_threads)[i].joinable()) {
-                (*m_threads)[i].join();
+        for (uint32_t i = 0; i < threads_->size(); i++) {
+            if ((*threads_)[i].joinable()) {
+                (*threads_)[i].join();
             }
         }
     }
 
  private:
-    std::vector<std::thread>* m_threads;
+    std::vector<std::thread>* threads_;
 };
 
 }   // namespace thread

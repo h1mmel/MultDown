@@ -55,21 +55,21 @@ class FunctionWrapper {
 
 class ThreadPool {
  public:
-    ThreadPool() : m_done(false), m_join(m_threads) {
+    ThreadPool() : done_(false), join_(threads_) {
         unsigned const thread_count = std::thread::hardware_concurrency();
         try {
             for (unsigned i = 0; i < thread_count; i++) {
-                m_threads.push_back(
+                threads_.push_back(
                         std::thread(&ThreadPool::WorkerThread, this));
             }
         } catch (...) {
-            m_done = true;
+            done_ = true;
             throw;
         }
     }
 
     ~ThreadPool() {
-        m_done = true;
+        done_ = true;
     }
 
     template<typename FunctionType>
@@ -78,19 +78,19 @@ class ThreadPool {
         typedef typename std::result_of<FunctionType()>::type result_type;
         std::packaged_task<result_type()> task(std::move(f));
         std::future<result_type> res(task.get_future());
-        m_work_queue.Push(std::move(task));
+        work_queue_.Push(std::move(task));
         return res;
     }
 
  private:
-    std::atomic_bool m_done;
-    SafeQueue<FunctionWrapper> m_work_queue;
-    std::vector<std::thread> m_threads;
-    JoinThreads m_join;
+    std::atomic_bool done_;
+    SafeQueue<FunctionWrapper> work_queue_;
+    std::vector<std::thread> threads_;
+    JoinThreads join_;
     void WorkerThread() {
-        while (!m_done) {
+        while (!done_) {
             FunctionWrapper task;
-            if (m_work_queue.TryPop(task)) {
+            if (work_queue_.TryPop(task)) {
                 task();
             } else {
                 std::this_thread::yield();

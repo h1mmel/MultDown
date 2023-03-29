@@ -20,7 +20,7 @@ class Debug {
     Debug();
     ~Debug();
 
-    FILE* m_fp;
+    FILE* fp_;
 };
 
 }   // namespace debug

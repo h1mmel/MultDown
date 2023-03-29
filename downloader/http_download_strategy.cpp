@@ -74,14 +74,14 @@ void HttpDownloadStrategy::WorkerThread(WriteData* data) {
                                         reinterpret_cast<void*>(data));
         HttpDownloadStrategy* http
                 = reinterpret_cast<HttpDownloadStrategy*>(data->meta->m_this);
-        if (http->m_threads_number != 1)
+        if (http->threads_number_ != 1)
             curl_easy_setopt(curl, CURLOPT_RANGE, range);
         curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, ProgressFunc);
         curl_easy_setopt(curl, CURLOPT_XFERINFODATA, data);
         curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
 
-        std::call_once(m_once, [this](){
-            m_start = std::chrono::high_resolution_clock::now();
+        std::call_once(once_, [this](){
+            start_ = std::chrono::high_resolution_clock::now();
         });
 
         data->stat->curl_code = curl_easy_perform(data->curl);
@@ -136,13 +136,13 @@ int HttpDownloadStrategy::ProgressFunc(void *clientp,
     double percent = 0.0;
     uint64_t total = data->meta->end - data->meta->start + 1;
     uint64_t down = 0, rest = 0;
-    for (uint64_t i = 0; i < p_this->m_data_vec.size(); i++) {
-        rest += p_this->m_data_vec[i]->tail - p_this->m_data_vec[i]->head;
+    for (uint64_t i = 0; i < p_this->data_vec_.size(); i++) {
+        rest += p_this->data_vec_[i]->tail - p_this->data_vec_[i]->head;
     }
     down = total - rest;
     std::chrono::time_point<std::chrono::high_resolution_clock> now
                                 = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> elapsed = now - p_this->m_start;
+    std::chrono::duration<double> elapsed = now - p_this->start_;
     percent = 1.0 * down / total;
     int dot = round(percent * total_dot);
     std::stringstream stream;
@@ -187,8 +187,8 @@ int HttpDownloadStrategy::ProgressFunc(void *clientp,
 
 Status HttpDownloadStrategy::GetDownloadStatistic() const {
     Status status {};
-    for (size_t i = 0; i < m_data_vec.size(); i++) {
-        WriteData* data = m_data_vec[i];
+    for (size_t i = 0; i < data_vec_.size(); i++) {
+        WriteData* data = data_vec_[i];
         if (data->stat->status < 0)
             status.status = data->stat->status;
         data->stat->total_down = data->head - data->stat->down.first + 1;
@@ -204,69 +204,69 @@ Status HttpDownloadStrategy::GetDownloadStatistic() const {
 
 HttpDownloadStrategy::HttpDownloadStrategy(int threads_number,
                                            const std::string& path)
-    : m_threads_number(threads_number),
-      m_path(path),
-      m_meta(new MetaData) {
+    : threads_number_(threads_number),
+      path_(path),
+      meta_(new MetaData) {
     for (int i = 0; i < threads_number; i++) {
-        m_data_vec.push_back(new WriteData);
+        data_vec_.push_back(new WriteData);
     }
-    m_meta->file_name =
+    meta_->file_name =
             path.substr(path.find_last_of('/') + 1, path.size());
 }
 
 HttpDownloadStrategy::~HttpDownloadStrategy() {
-    for (uint64_t i = 0; i < m_data_vec.size(); i++) {
-        if (m_data_vec[i]->stat != nullptr)
-            delete m_data_vec[i]->stat;
-        delete m_data_vec[i];
+    for (uint64_t i = 0; i < data_vec_.size(); i++) {
+        if (data_vec_[i]->stat != nullptr)
+            delete data_vec_[i]->stat;
+        delete data_vec_[i];
     }
-    if (m_meta != nullptr && m_meta->fp != nullptr) {
-        fclose(m_meta->fp);
+    if (meta_ != nullptr && meta_->fp != nullptr) {
+        fclose(meta_->fp);
     }
-    if (m_meta != nullptr && m_meta->base != nullptr) {
-        int ret = munmap(m_meta->base, m_meta->end - m_meta->start + 1);
+    if (meta_ != nullptr && meta_->base != nullptr) {
+        int ret = munmap(meta_->base, meta_->end - meta_->start + 1);
         if (ret != 0) perror("munmap error");
     }
-    if (m_meta != nullptr) delete m_meta;
+    if (meta_ != nullptr) delete meta_;
 }
 
 Status HttpDownloadStrategy::Download(const std::string& url,
                                       uint64_t start,
                                       uint64_t end) {
-    m_meta->fp = fopen(m_path.c_str(), "r+");
-    if (m_meta->fp == nullptr)
+    meta_->fp = fopen(path_.c_str(), "r+");
+    if (meta_->fp == nullptr)
         return {-1, 0, {}, {}, {CURL_LAST}, {}, {}, {strerror(errno)}};
 
     uint64_t len = end - start + 1;
-    uint64_t size = len / m_threads_number;
+    uint64_t size = len / threads_number_;
     uint64_t head = start, tail = 0;
 
     uint8_t* base = reinterpret_cast<uint8_t*>(mmap(nullptr, len, PROT_WRITE,
-                                    MAP_SHARED, m_meta->fp->_fileno, 0));
+                                    MAP_SHARED, meta_->fp->_fileno, 0));
     if (base == MAP_FAILED)
         return {-1, 0, {}, {}, {CURL_LAST}, {}, {}, {strerror(errno)}};
 
-    m_meta->base = base;
-    m_meta->start = start;
-    m_meta->end = end;
-    m_meta->url = url;
-    m_meta->m_this = reinterpret_cast<void*>(this);
+    meta_->base = base;
+    meta_->start = start;
+    meta_->end = end;
+    meta_->url = url;
+    meta_->m_this = reinterpret_cast<void*>(this);
 
     std::vector<std::thread> threads_arr;
-    for (int i = 0; i < m_threads_number; i++) {
+    for (int i = 0; i < threads_number_; i++) {
         if (len - head < size || (len - head > size && len - head < 2 * size)) {
             tail = len - 1;
         } else {
             tail = head + size - 1;
         }
-        m_data_vec[i]->meta = m_meta;
-        m_data_vec[i]->stat = new MetaStatus;
-        m_data_vec[i]->stat->down = {head, tail};
-        m_data_vec[i]->head = head;
-        m_data_vec[i]->tail = tail;
+        data_vec_[i]->meta = meta_;
+        data_vec_[i]->stat = new MetaStatus;
+        data_vec_[i]->stat->down = {head, tail};
+        data_vec_[i]->head = head;
+        data_vec_[i]->tail = tail;
         head += size;
         threads_arr.push_back(std::thread(&HttpDownloadStrategy::WorkerThread,
-                                this, m_data_vec[i]));
+                                this, data_vec_[i]));
     }
 
     {

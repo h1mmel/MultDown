@@ -13,9 +13,9 @@ Debug::Debug() {
     std::string name =
                 "debug_" + std::to_string(static_cast<int>(pid)) + ".log";
     FILE* fp = fopen(name.c_str(), "w+");
-    if (fp != nullptr) m_fp = fp;
+    if (fp != nullptr) fp_ = fp;
     else
-        m_fp = stderr;
+        fp_ = stderr;
 }
 
 Debug::~Debug() = default;
@@ -26,7 +26,7 @@ Debug& Debug::GetDebugInstance() {
 }
 
 FILE* Debug::GetFilePointer() {
-    return m_fp;
+    return fp_;
 }
 
 }   // namespace debug

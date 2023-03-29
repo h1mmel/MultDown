@@ -41,12 +41,12 @@ class HttpDownloadStrategy : public DownloadStrategy {
 
     Status GetDownloadStatistic() const;
 
-    int m_threads_number;
-    std::string m_path;
-    MetaData* m_meta;
-    std::vector<WriteData*> m_data_vec;
-    std::once_flag m_once;
-    std::chrono::time_point<std::chrono::high_resolution_clock> m_start;
+    int threads_number_;
+    std::string path_;
+    MetaData* meta_;
+    std::vector<WriteData*> data_vec_;
+    std::once_flag once_;
+    std::chrono::time_point<std::chrono::high_resolution_clock> start_;
 };
 
 }   // namespace downloader
