@@ -77,6 +77,8 @@ size_t Downloader<ProtoType>::HeaderCallback(char* buffer, size_t size,
 
     n = line.find("HTTP/");
     if (n != std::string::npos) {
+        if (downloader::is_debug)
+            std::cout << "\n---Response Header---" << std::endl;
         n = line.find(" ");
         std::string version;
         if (n != std::string::npos)
@@ -160,6 +162,13 @@ size_t Downloader<ProtoType>::HeaderCallback(char* buffer, size_t size,
     if (n != std::string::npos) {
         n = std::strlen("Location: ");
         data->SetLocation(line.substr(n));
+    }
+
+    if (downloader::is_debug) {
+        if (!line.empty())
+            fwrite(buffer, size, nitems, stdout);
+        else
+            std::cout << "----Response  End----\n" << std::endl;
     }
 
     return nitems * size;
