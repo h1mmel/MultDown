@@ -75,6 +75,34 @@ size_t Downloader<ProtoType>::HeaderCallback(char* buffer, size_t size,
     std::string line(buffer, size * nitems - 2);
     std::string::size_type n = 0;
 
+    n = line.find("HTTP/");
+    if (n != std::string::npos) {
+        n = line.find(" ");
+        std::string version;
+        if (n != std::string::npos)
+            version = line.substr(0, n);
+        std::string::size_type m = line.substr(n + 1).find(" ");
+        uint32_t code = 0;
+        std::string status;
+        if (m != std::string::npos) {
+            code = std::stoul(line.substr(n + 1, m));
+            status = line.substr(n + m + 2);
+        }
+        data->SetResponseLine(version, code, status);
+    }
+
+    n = line.find("Server: ");
+    if (n != std::string::npos) {
+        n = std::strlen("Server: ");
+        data->SetServer(line.substr(n));
+    }
+
+    n = line.find("Accept-Ranges: ");
+    if (n != std::string::npos) {
+        n = std::strlen("Accept-Ranges: ");
+        data->SetAcceptRanges(line.substr(n));
+    }
+
     n = line.find("Content-Encoding: ");
     if (n != std::string::npos) {
         n = std::strlen("Content-Encoding: ");
@@ -91,11 +119,47 @@ size_t Downloader<ProtoType>::HeaderCallback(char* buffer, size_t size,
             data->SetContentType(line.substr(n), std::string());
     }
 
+    n = line.find("Date: ");
+    if (n != std::string::npos) {
+        n = std::strlen("Date: ");
+        data->SetDate(line.substr(n));
+    }
+
+    n = line.find("Etag: ");
+    if (n != std::string::npos) {
+        n = std::strlen("Etag: ");
+        data->SetETag(line.substr(n));
+    }
+
+    n = line.find("Expires: ");
+    if (n != std::string::npos) {
+        n = std::strlen("Expires: ");
+        data->SetExpires(line.substr(n));
+    }
+
+    n = line.find("Last-Modified: ");
+    if (n != std::string::npos) {
+        n = std::strlen("Last-Modified: ");
+        data->SetExpires(line.substr(n));
+    }
+
     n = line.find("Content-Length: ");
     if (n != std::string::npos) {
         n = std::strlen("Content-Length: ");
         data->SetContentLength(
                     static_cast<uint64_t>(std::stoull(line.substr(n))));
+    }
+
+    n = line.find("Connection: ");
+    if (n != std::string::npos) {
+        n = std::strlen("Connection: ");
+        data->SetConnection(line.substr(n));
+    }
+
+    n = line.find("Location: ");
+    if (n != std::string::npos) {
+        n = std::strlen("Location: ");
+        data->SetLocation(line.substr(n));
     }
 
     return nitems * size;

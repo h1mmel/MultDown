@@ -4,17 +4,61 @@ namespace downloader {
 
 namespace proto {
 
+struct Http::StatusLine {
+    StatusLine() : status_code(0) {}
+
+    std::string version;
+    uint32_t status_code;
+    std::string status;
+};
+
 struct Http::ContentType {
     std::string type;
     std::string parameter;
 };
 
-Http::Http() : content_type_(new ContentType),
-               content_length_(0)
-{}
+Http::Http() : response_line_(new StatusLine),
+               content_type_(new ContentType),
+               content_length_(0) {}
 
 Http::~Http() {
+    if (response_line_ != nullptr) delete response_line_;
     if (content_type_ != nullptr) delete content_type_;
+}
+
+void Http::SetResponseLine(std::string version, uint32_t code,
+                           std::string status) {
+    response_line_->version = version;
+    response_line_->status_code = code;
+    response_line_->status = status;
+}
+
+std::string Http::GetResponseVersion() const {
+    return response_line_->version;
+}
+
+uint32_t Http::GetResponseCode() const {
+    return response_line_->status_code;
+}
+
+std::string Http::GetResponseStatus() const {
+    return response_line_->status;
+}
+
+void Http::SetServer(std::string server) {
+    server_ = server;
+}
+
+std::string Http::GetServer() const {
+    return server_;
+}
+
+void Http::SetAcceptRanges(std::string accept_ranges) {
+    accept_ranges_ = accept_ranges;
+}
+
+std::string Http::GetAcceptRanges() const {
+    return accept_ranges_;
 }
 
 void Http::SetContentEncoding(std::string encoding) {
@@ -38,12 +82,60 @@ std::string Http::GetContentTypeParameter() const {
     return content_type_->parameter;
 }
 
+void Http::SetDate(std::string date) {
+    date_ = date;
+}
+
+std::string Http::GetDate() const {
+    return date_;
+}
+
+void Http::SetETag(std::string e_tag) {
+    e_tag_ = e_tag;
+}
+
+std::string Http::GetETag() const {
+    return e_tag_;
+}
+
+void Http::SetExpires(std::string expires) {
+    expires_ = expires;
+}
+
+std::string Http::GetExpires() const {
+    return expires_;
+}
+
+void Http::SetLastModified(std::string last_modified) {
+    last_modified_ = last_modified;
+}
+
+std::string Http::GetLastModified() const {
+    return last_modified_;
+}
+
 void Http::SetContentLength(uint64_t len) {
     content_length_ = len;
 }
 
 uint64_t Http::GetContentLength() const {
     return content_length_;
+}
+
+void Http::SetConnection(std::string connection) {
+    connection_ = connection;
+}
+
+std::string Http::GetConnection() const {
+    return connection_;
+}
+
+void Http::SetLocation(std::string location) {
+    location_ = location;
+}
+
+std::string Http::GetLocation() const {
+    return location_;
 }
 
 }   // namespace proto
