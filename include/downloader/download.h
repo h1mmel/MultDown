@@ -268,6 +268,7 @@ void Downloader<ProtoType>::Display(uint64_t length, Status* status) {
     stream << std::put_time(localtime_r(&t_now, &tm_now), "%F %X");
     if (length == 0) {
         length = status->total;
+        stream << std::setiosflags(std::ios::fixed) << std::setprecision(2);
         if (length < 1024)
             stream << " (" << 1.0 * length / elapsed.count() << " B/s)";
         else if (length < 1024 * 1024)
