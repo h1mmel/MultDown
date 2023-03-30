@@ -105,7 +105,7 @@ size_t HttpDownloadStrategy::WriteFunc(void* ptr, size_t size, size_t nmemb,
     size_t written = 0;
     fseek(data->meta->fp, data->head, SEEK_SET);
     written = fwrite(ptr, size, nmemb, data->meta->fp);
-    data->head += size * nmemb;
+    data->head += size * nmemb - 1;
     data->tail = data->head;
     return written;
 }
