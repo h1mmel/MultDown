@@ -55,9 +55,6 @@ void HttpDownloadStrategy::WorkerThread(WriteData* data) {
     CURL* curl = curl_easy_init();
     if (curl) {
         data->curl = curl;
-        char range[64] = {0};
-        snprintf(range, sizeof (range), "%lu-%lu",
-                    data->head, data->tail);
 
         if (downloader::is_debug) {
             curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
@@ -66,17 +63,29 @@ void HttpDownloadStrategy::WorkerThread(WriteData* data) {
             void* data = reinterpret_cast<void*>(dbg.GetFilePointer());
             curl_easy_setopt(curl, CURLOPT_DEBUGDATA, data);
         }
+
         curl_easy_setopt(curl, CURLOPT_URL, data->meta->url.c_str());
-        // curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, LockWriteFunc);
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, LockFreeWriteFunc);
+        if (data->meta->base != nullptr)
+            curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, LockFreeWriteFunc);
+        else
+            curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteFunc);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA,
                                         reinterpret_cast<void*>(data));
+
         HttpDownloadStrategy* http
                 = reinterpret_cast<HttpDownloadStrategy*>(data->meta->m_this);
-        if (http->threads_number_ != 1)
+        if (http->threads_number_ != 1) {
+            char range[64] = {0};
+            snprintf(range, sizeof (range), "%lu-%lu", data->head, data->tail);
             curl_easy_setopt(curl, CURLOPT_RANGE, range);
-        curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, ProgressFunc);
-        curl_easy_setopt(curl, CURLOPT_XFERINFODATA, data);
+        }
+
+        if (data->meta->end != UINT64_MAX)
+            curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, ProgressFunc);
+        else
+            curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, ProgressFunc2);
+        curl_easy_setopt(curl, CURLOPT_XFERINFODATA,
+                                        reinterpret_cast<void*>(data));
         curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
 
         std::call_once(once_, [this](){
@@ -88,6 +97,17 @@ void HttpDownloadStrategy::WorkerThread(WriteData* data) {
                                         &data->stat->response_code);
         curl_easy_cleanup(data->curl);
     }
+}
+
+size_t HttpDownloadStrategy::WriteFunc(void* ptr, size_t size, size_t nmemb,
+                                       void* user_data) {
+    WriteData* data = reinterpret_cast<WriteData*>(user_data);
+    size_t written = 0;
+    fseek(data->meta->fp, data->head, SEEK_SET);
+    written = fwrite(ptr, size, nmemb, data->meta->fp);
+    data->head += size * nmemb;
+    data->tail = data->head;
+    return written;
 }
 
 size_t HttpDownloadStrategy::LockWriteFunc(void* ptr, size_t size, size_t nmemb,
@@ -184,9 +204,51 @@ int HttpDownloadStrategy::ProgressFunc(void *clientp,
     return 0;
 }
 
+int HttpDownloadStrategy::ProgressFunc2(void *clientp,
+                                        curl_off_t dltotal, curl_off_t dlnow,
+                                        curl_off_t ultotal, curl_off_t ulnow) {
+    WriteData* data = reinterpret_cast<WriteData*>(clientp);
+    HttpDownloadStrategy* p_this =
+                reinterpret_cast<HttpDownloadStrategy*>(data->meta->m_this);
+    uint64_t down = data->head;
+
+    std::chrono::time_point<std::chrono::high_resolution_clock> now
+                                = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed = now - p_this->start_;
+
+    std::stringstream stream;
+    stream << "\r";
+    stream << std::setw(30) << std::setiosflags(std::ios::left)
+            << data->meta->file_name.c_str();
+
+    stream << std::setiosflags(std::ios::fixed) << std::setprecision(2);
+    stream << std::setiosflags(std::ios::right);
+    if (down < 1024) stream << std::setw(5) << down << "B";
+    else if (down < 1024 * 1024)
+        stream << std::setw(5) << 1.0 * down / 1024 << "K";
+    else if (down < 1024 * 1024 * 1024)
+        stream << std::setw(5) << 1.0 * down / 1024 / 1024 << "M";
+    else
+        stream << std::setw(5) << 1.0 * down / 1024 / 1024 / 1024 << "G";
+
+    if (down < 1024)
+        stream << std::setw(10) << 1.0 * down / elapsed.count() << "B/s";
+    else if (down < 1024 * 1024)
+        stream << std::setw(10)
+                << 1.0 * down / 1024 / elapsed.count() << "KB/s";
+    else
+        stream << std::setw(10)
+                << 1.0 * down / 1024 / 1024 / elapsed.count() << "MB/s";
+    if (down > g_last) {
+        std::cout << stream.str() << std::flush;
+        g_last = down;
+    }
+    return 0;
+}
+
 Status HttpDownloadStrategy::GetDownloadStatistic() const {
     Status status {};
-    for (size_t i = 0; i < data_vec_.size(); i++) {
+    for (int i = 0; i < threads_number_; i++) {
         WriteData* data = data_vec_[i];
         if (data->stat->status < 0)
             status.status = data->stat->status;
@@ -244,14 +306,17 @@ Status HttpDownloadStrategy::Download(const std::string& url,
     if (meta_->fp == nullptr)
         return {-1, 0, {}, {}, {CURL_LAST}, {}, {}, {strerror(errno)}};
 
-    uint64_t len = end - start + 1;
-    uint64_t size = len / threads_number_;
-    uint64_t head = start, tail = 0;
-
-    uint8_t* base = reinterpret_cast<uint8_t*>(mmap(nullptr, len, PROT_WRITE,
-                                    MAP_SHARED, meta_->fp->_fileno, 0));
-    if (base == MAP_FAILED)
-        return {-1, 0, {}, {}, {CURL_LAST}, {}, {}, {strerror(errno)}};
+    uint64_t len = 0, size = 0, head = 0, tail = 0;
+    uint8_t* base = nullptr;
+    if (end != UINT64_MAX) {
+        len = end - start + 1;
+        size = len / threads_number_;
+        head = start;
+        base = reinterpret_cast<uint8_t*>(mmap(nullptr, len, PROT_WRITE,
+                                            MAP_SHARED, meta_->fp->_fileno, 0));
+        if (base == MAP_FAILED)
+            return {-1, 0, {}, {}, {CURL_LAST}, {}, {}, {strerror(errno)}};
+    }
 
     meta_->base = base;
     meta_->start = start;
@@ -260,20 +325,32 @@ Status HttpDownloadStrategy::Download(const std::string& url,
     meta_->m_this = reinterpret_cast<void*>(this);
 
     std::vector<std::thread> threads_arr;
-    for (int i = 0; i < threads_number_; i++) {
-        if (len - head < size || (len - head > size && len - head < 2 * size)) {
-            tail = len - 1;
-        } else {
-            tail = head + size - 1;
-        }
-        data_vec_[i]->meta = meta_;
-        data_vec_[i]->stat = new MetaStatus;
-        data_vec_[i]->stat->down = {head, tail};
-        data_vec_[i]->head = head;
-        data_vec_[i]->tail = tail;
-        head += size;
+    if (meta_->end == UINT64_MAX) {
+        data_vec_[0]->meta = meta_;
+        data_vec_[0]->stat = new MetaStatus;
+        data_vec_[0]->stat->down = {head, tail};
+        data_vec_[0]->head = head;
+        data_vec_[0]->tail = tail;
         threads_arr.push_back(std::thread(&HttpDownloadStrategy::WorkerThread,
-                                this, data_vec_[i]));
+                                          this, data_vec_[0]));
+    } else {
+        for (int i = 0; i < threads_number_; i++) {
+            if (len - head < size
+                || (len - head > size && len - head < 2 * size)) {
+                tail = len - 1;
+            } else {
+                tail = head + size - 1;
+            }
+            data_vec_[i]->meta = meta_;
+            data_vec_[i]->stat = new MetaStatus;
+            data_vec_[i]->stat->down = {head, tail};
+            data_vec_[i]->head = head;
+            data_vec_[i]->tail = tail;
+            head += size;
+            threads_arr.push_back(
+                std::thread(&HttpDownloadStrategy::WorkerThread,
+                this, data_vec_[i]));
+        }
     }
 
     {

@@ -31,6 +31,9 @@ class HttpDownloadStrategy : public DownloadStrategy {
 
     void WorkerThread(WriteData* data);
 
+    static size_t WriteFunc(void* ptr, size_t size, size_t nmemb,
+                            void* user_data);
+
     static size_t LockWriteFunc(void* ptr, size_t size, size_t nmemb,
                                 void* user_data);
 
@@ -40,6 +43,10 @@ class HttpDownloadStrategy : public DownloadStrategy {
     static int ProgressFunc(void *clientp,
                             curl_off_t dltotal, curl_off_t dlnow,
                             curl_off_t ultotal, curl_off_t ulnow);
+
+    static int ProgressFunc2(void *clientp,
+                             curl_off_t dltotal, curl_off_t dlnow,
+                             curl_off_t ultotal, curl_off_t ulnow);
 
     Status GetDownloadStatistic() const;
 
