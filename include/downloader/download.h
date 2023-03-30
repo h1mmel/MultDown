@@ -173,6 +173,7 @@ size_t Downloader<ProtoType>::HeaderCallback(char* buffer, size_t size,
     if (n != std::string::npos) {
         n = std::strlen("Location: ");
         data->SetLocation(line.substr(n));
+        std::cout << "Location: " << data->GetLocation() << std::endl;
     }
 
     if (downloader::is_debug) {
