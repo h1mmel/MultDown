@@ -57,6 +57,7 @@ class Http : public ProtoBase {
 
     void SetContentLength(uint64_t len);
     uint64_t GetContentLength() const;
+    uint64_t GetActualContentLength() const;
 
     void SetConnection(std::string connection);
     std::string GetConnection() const;

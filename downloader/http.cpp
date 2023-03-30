@@ -134,6 +134,12 @@ uint64_t Http::GetContentLength() const {
     return content_length_;
 }
 
+uint64_t Http::GetActualContentLength() const {
+    if (IsChunked()) return 0UL;
+    else
+        return GetContentLength();
+}
+
 void Http::SetConnection(std::string connection) {
     connection_ = connection;
 }

@@ -210,8 +210,9 @@ int Downloader<ProtoType>::GetFileInfo(const std::string& url) {
 template<typename ProtoType>
 int Downloader<ProtoType>::CreateFile() {
     std::ofstream file(save_path_, std::ios::out);
+    uint64_t len = http_header_->GetActualContentLength();
     try {
-        file.seekp(http_header_->GetContentLength() - 1);
+        file.seekp(len ? len - 1 : 0);
         file << '\0';
     } catch (const std::ios_base::failure& e) {
         return -1;
