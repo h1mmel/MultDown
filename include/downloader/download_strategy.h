@@ -11,6 +11,8 @@ class DownloadStrategy {
  public:
     DownloadStrategy() = default;
 
+    virtual int SetThreadsNumber(int num) = 0;
+
     virtual Status Download(const std::string& url,
                             uint64_t start,
                             uint64_t end) = 0;

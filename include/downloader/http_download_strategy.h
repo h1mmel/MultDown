@@ -19,6 +19,8 @@ class HttpDownloadStrategy : public DownloadStrategy {
 
     virtual ~HttpDownloadStrategy();
 
+    int SetThreadsNumber(int num) override;
+
     Status Download(const std::string& url,
                     uint64_t start,
                     uint64_t end) override;

@@ -229,6 +229,14 @@ HttpDownloadStrategy::~HttpDownloadStrategy() {
     if (meta_ != nullptr) delete meta_;
 }
 
+int HttpDownloadStrategy::SetThreadsNumber(int num) {
+    if (num > 0 && num < 10000)
+        threads_number_ = num;
+    else
+        return -1;
+    return 0;
+}
+
 Status HttpDownloadStrategy::Download(const std::string& url,
                                       uint64_t start,
                                       uint64_t end) {
