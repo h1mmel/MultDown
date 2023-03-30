@@ -177,7 +177,9 @@ int Downloader<ProtoType>::GetFileInfo(const std::string& url) {
             curl_easy_setopt(curl, CURLOPT_DEBUGDATA, data);
         }
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-        // TODO(xxx) : HEAD 请求网页可能导致 Content-Length 变短
+        // TODO(xxx) : Content-Encoding 字段导致 Content-Length
+        // 数据长度是压缩后的长度
+        // TODO(xxx) : 解决 chunked 模式
         curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, HeaderCallback);
         curl_easy_setopt(curl, CURLOPT_HEADERDATA,
                                 reinterpret_cast<void*>(http_header_));
