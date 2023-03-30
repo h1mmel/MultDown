@@ -193,6 +193,7 @@ int Downloader<ProtoType>::GetFileInfo(const std::string& url) {
         curl_easy_setopt(curl, CURLOPT_HEADERDATA,
                                 reinterpret_cast<void*>(http_header_));
         curl_easy_setopt(curl, CURLOPT_NOBODY, 1L);
+        curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
         curl_easy_perform(curl);
         curl_easy_cleanup(curl);
     }
@@ -252,8 +253,11 @@ int Downloader<ProtoType>::DoDownload(const std::string& url) {
     std::time_t t_now =
                 std::chrono::high_resolution_clock::to_time_t(start);
     std::tm tm_now {};
+    std::string real_url = url;
+    if (!http_header_->GetLocation().empty())
+        real_url = http_header_->GetLocation();
     std::cout << std::put_time(localtime_r(&t_now, &tm_now), "--%F %X--")
-                << "  " << url << std::endl;
+                << "  " << real_url << std::endl;
     uint64_t length = http_header_->GetContentLength();
     std::cout << "Length: " << length;
     std::cout << std::setprecision(1);
@@ -276,7 +280,7 @@ int Downloader<ProtoType>::DoDownload(const std::string& url) {
                 << "'\n" << std::endl;
     Status status {};
     if (length >= 1)
-        status = strategy_->Download(url, 0, length - 1);
+        status = strategy_->Download(real_url, 0, length - 1);
     else
         status = {-1, 0, {}, {}, {CURL_LAST}, {}, {}, "warn: 0 bytes"};
     std::cout << "\n\n------Total Statistics-----\n" << std::endl;
