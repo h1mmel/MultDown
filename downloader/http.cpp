@@ -31,6 +31,7 @@ void Http::SetResponseLine(std::string version, uint32_t code,
     response_line_->version = version;
     response_line_->status_code = code;
     response_line_->status = status;
+    content_length_ = 0UL;
 }
 
 std::string Http::GetResponseVersion() const {
@@ -134,8 +135,9 @@ uint64_t Http::GetContentLength() const {
     return content_length_;
 }
 
+// 对于 Content-Encoding 响应, 返回 0
 uint64_t Http::GetActualContentLength() const {
-    if (IsChunked()) return 0UL;
+    if (IsChunked() || !GetContentEncoding().empty()) return 0UL;
     else
         return GetContentLength();
 }
