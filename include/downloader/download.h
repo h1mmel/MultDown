@@ -121,6 +121,12 @@ size_t Downloader<ProtoType>::HeaderCallback(char* buffer, size_t size,
             data->SetContentType(line.substr(n), std::string());
     }
 
+    n = line.find("Transfer-Encoding: ");
+    if (n != std::string::npos) {
+        n = std::strlen("Transfer-Encoding: ");
+        data->SetTransferEncoding(line.substr(n));
+    }
+
     n = line.find("Date: ");
     if (n != std::string::npos) {
         n = std::strlen("Date: ");

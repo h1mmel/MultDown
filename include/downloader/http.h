@@ -39,6 +39,10 @@ class Http : public ProtoBase {
     std::string GetContentType() const;
     std::string GetContentTypeParameter() const;
 
+    void SetTransferEncoding(std::string transfer_encoding);
+    std::string GetTransferEncoding() const;
+    bool IsChunked() const;
+
     void SetDate(std::string date);
     std::string GetDate() const;
 
@@ -69,6 +73,7 @@ class Http : public ProtoBase {
     std::string accept_ranges_;
     std::string content_encoding_;
     ContentType* content_type_;
+    std::string transfer_encoding_;
     std::string date_;
     std::string e_tag_;
     std::string expires_;

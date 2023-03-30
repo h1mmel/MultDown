@@ -82,6 +82,18 @@ std::string Http::GetContentTypeParameter() const {
     return content_type_->parameter;
 }
 
+void Http::SetTransferEncoding(std::string transfer_encoding) {
+    transfer_encoding_ = transfer_encoding;
+}
+
+std::string Http::GetTransferEncoding() const {
+    return transfer_encoding_;
+}
+
+bool Http::IsChunked() const {
+    return transfer_encoding_.find("chunked") != std::string::npos;
+}
+
 void Http::SetDate(std::string date) {
     date_ = date;
 }
