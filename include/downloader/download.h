@@ -243,17 +243,14 @@ void Downloader<ProtoType>::PreDisplay(std::string url,
     else if (length < 1024 * 1024)
         std::cout << " (" << 1.0 * length / 1024 << "K)";
     else if (length < 1024 * 1024 * 1024)
-        std::cout << " ("
-                    << 1.0 * length / 1024 / 1024 << "M)";
+        std::cout << " (" << 1.0 * length / 1024 / 1024 << "M)";
     else
-        std::cout << " ("
-                    << 1.0 * length / 1024 / 1024 / 1024
-                    << "G)";
+        std::cout << " (" << 1.0 * length / 1024 / 1024 / 1024 << "G)";
     std::cout << " [" << http_header_->GetContentType() << "]\n";
     std::cout << "Saving to: " << "'"
-                << save_path_.substr(save_path_.find_last_of('/') + 1,
+              << save_path_.substr(save_path_.find_last_of('/') + 1,
                                 save_path_.size())
-                << "'\n" << std::endl;
+              << "'\n" << std::endl;
 }
 
 template<typename ProtoType>
