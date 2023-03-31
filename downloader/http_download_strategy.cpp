@@ -3,15 +3,14 @@
 #include <sys/mman.h>
 
 #include <thread>   // NOLINT
-#include <sstream>
 #include <iostream>
 #include <cstring>  // memcopy
-#include <iomanip>  // std::setw std::setiosflags std::setprecision
 
 #include "downloader/http_download_strategy.h"
 #include "downloader/debug_functions.h"
 #include "downloader/join_threads.h"
 #include "downloader/download.h"
+#include "downloader/display.h"
 #include "downloader/debug.h"
 
 namespace downloader {
@@ -163,13 +162,13 @@ int HttpDownloadStrategy::ProgressFunc(void *clientp,
                                 = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = now - p_this->start_;
     percent = 1.0 * down / total;
-    int dot = round(percent * total_dot);
+    int dot = static_cast<int>(round(percent * total_dot));
     std::stringstream stream;
     stream << "\r";
     stream << std::setw(30) << std::setiosflags(std::ios::left)
-            << data->meta->file_name.c_str();
+           << data->meta->file_name.c_str();
     stream << std::setw(3) << std::setiosflags(std::ios::right)
-            << static_cast<uint64_t>(percent * 100) << "%[";
+           << static_cast<int64_t>(percent * 100) << "%[";
     for (int i = 0; i < total_dot; i++) {
         if (i < dot) stream << "=";
         else if (i == dot) stream << ">";
@@ -177,23 +176,8 @@ int HttpDownloadStrategy::ProgressFunc(void *clientp,
             stream << " ";
     }
     stream << "]";
-    stream << std::setiosflags(std::ios::fixed) << std::setprecision(2);
-    if (down < 1024) stream << std::setw(10) << down << "B";
-    else if (down < 1024 * 1024)
-        stream << std::setw(10) << 1.0 * down / 1024 << "K";
-    else if (down < 1024 * 1024 * 1024)
-        stream << std::setw(10) << 1.0 * down / 1024 / 1024 << "M";
-    else
-        stream << std::setw(10) << 1.0 * down / 1024 / 1024 / 1024 << "G";
-    stream << std::setiosflags(std::ios::right);
-    if (down < 1024)
-        stream << std::setw(10) << 1.0 * down / elapsed.count() << "B/s";
-    else if (down < 1024 * 1024)
-        stream << std::setw(10)
-                << 1.0 * down / 1024 / elapsed.count() << "KB/s";
-    else
-        stream << std::setw(10) << std::setprecision(1)
-                << 1.0 * down / 1024 / 1024 / elapsed.count() << "MB/s";
+    util::ShowSize(stream, 10, 2, down);
+    util::ShowRate(stream, 10, 1, down, elapsed);
     {
         std::lock_guard<std::mutex> lk(g_prog_mutex);
         if (down > g_last) {
@@ -219,26 +203,12 @@ int HttpDownloadStrategy::ProgressFunc2(void *clientp,
     std::stringstream stream;
     stream << "\r";
     stream << std::setw(30) << std::setiosflags(std::ios::left)
-            << data->meta->file_name.c_str();
+           << data->meta->file_name.c_str();
 
-    stream << std::setiosflags(std::ios::fixed) << std::setprecision(2);
-    stream << std::setiosflags(std::ios::right);
-    if (down < 1024) stream << std::setw(5) << down << "B";
-    else if (down < 1024 * 1024)
-        stream << std::setw(5) << 1.0 * down / 1024 << "K";
-    else if (down < 1024 * 1024 * 1024)
-        stream << std::setw(5) << 1.0 * down / 1024 / 1024 << "M";
-    else
-        stream << std::setw(5) << 1.0 * down / 1024 / 1024 / 1024 << "G";
+    util::ShowSize(stream, 0, 2, down);
+    stream << "    ";
+    util::ShowRate(stream, 0, 1, down, elapsed);
 
-    if (down < 1024)
-        stream << std::setw(10) << 1.0 * down / elapsed.count() << "B/s";
-    else if (down < 1024 * 1024)
-        stream << std::setw(10)
-                << 1.0 * down / 1024 / elapsed.count() << "KB/s";
-    else
-        stream << std::setw(10)
-                << 1.0 * down / 1024 / 1024 / elapsed.count() << "MB/s";
     if (down > g_last) {
         std::cout << stream.str() << std::flush;
         g_last = down;

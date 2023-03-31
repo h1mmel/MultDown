@@ -19,6 +19,7 @@
 #include "downloader/debug_functions.h"
 #include "downloader/debug.h"
 #include "downloader/http.h"
+#include "downloader/display.h"
 
 namespace downloader {
 
@@ -224,8 +225,7 @@ int Downloader<ProtoType>::CreateFile() {
 }
 
 template<typename ProtoType>
-void Downloader<ProtoType>::PreDisplay(std::string url,
-                                       uint64_t length) {
+void Downloader<ProtoType>::PreDisplay(std::string url, uint64_t length) {
     start_ = std::chrono::high_resolution_clock::now();
     std::time_t t_now =
                 std::chrono::high_resolution_clock::to_time_t(start_);
@@ -233,24 +233,23 @@ void Downloader<ProtoType>::PreDisplay(std::string url,
     std::string real_url = url;
     if (!http_header_->GetLocation().empty())
         real_url = http_header_->GetLocation();
-    std::cout << std::put_time(localtime_r(&t_now, &tm_now), "--%F %X--")
-                << "  " << real_url << std::endl;
-    std::cout << "Length: " << length;
-    std::cout << std::setprecision(1);
-    std::cout << std::setiosflags(std::ios::fixed);
-    if (length < 1024)
-        std::cout << " (" << length << "B)";
-    else if (length < 1024 * 1024)
-        std::cout << " (" << 1.0 * length / 1024 << "K)";
-    else if (length < 1024 * 1024 * 1024)
-        std::cout << " (" << 1.0 * length / 1024 / 1024 << "M)";
-    else
-        std::cout << " (" << 1.0 * length / 1024 / 1024 / 1024 << "G)";
-    std::cout << " [" << http_header_->GetContentType() << "]\n";
-    std::cout << "Saving to: " << "'"
-              << save_path_.substr(save_path_.find_last_of('/') + 1,
+    std::stringstream stream;
+    stream << std::put_time(localtime_r(&t_now, &tm_now), "--%F %X--")
+           << "  " << real_url << "\n";
+    stream << "Length: ";
+    if (length != 0) {
+        stream << length << " (";
+        util::ShowSize(stream, 0, 1, length);
+        stream << ")";
+    } else {
+        stream << "unspecified";
+    }
+    stream << " [" << http_header_->GetContentType() << "]\n";
+    stream << "Saving to: " << "'"
+           << save_path_.substr(save_path_.find_last_of('/') + 1,
                                 save_path_.size())
-              << "'\n" << std::endl;
+           << "'\n\n";
+    std::cout << stream.str() << std::flush;
 }
 
 template<typename ProtoType>
@@ -265,15 +264,9 @@ void Downloader<ProtoType>::Display(uint64_t length, Status* status) {
     stream << std::put_time(localtime_r(&t_now, &tm_now), "%F %X");
     if (length == 0) {
         length = status->total;
-        stream << std::setiosflags(std::ios::fixed) << std::setprecision(2);
-        if (length < 1024)
-            stream << " (" << 1.0 * length / elapsed.count() << " B/s)";
-        else if (length < 1024 * 1024)
-            stream << " (" << 1.0 * length / 1024 / elapsed.count() << " KB/s)";
-        else
-            stream << " ("
-                   << 1.0 * length / 1024 / 1024 / elapsed.count() << " MB/s)";
-        stream << " - '" << save_path_
+        stream << " (";
+        util::ShowRate(stream, 0, 2, length, elapsed);
+        stream << ") - '" << save_path_
                << "' saved [" << status->total << "]\n\n";
         if (status->status != 0) {
             stream << status->error_msg << "\n";
@@ -290,14 +283,9 @@ void Downloader<ProtoType>::Display(uint64_t length, Status* status) {
             stream << ", status: " << status->stats[0] << "\n";
         }
     } else {
-        stream << std::setiosflags(std::ios::fixed) << std::setprecision(2);
-        if (length < 1024)
-            stream << " (" << 1.0 * length / elapsed.count() << " B/s)";
-        else if (length < 1024 * 1024)
-            stream << " (" << 1.0 * length / 1024 / elapsed.count() << " KB/s)";
-        else
-            stream << " ("
-                   << 1.0 * length / 1024 / 1024 / elapsed.count() << " MB/s)";
+        stream << " (";
+        util::ShowRate(stream, 0, 2, length, elapsed);
+        stream << ")";
         stream << " - '" << save_path_ << "' saved [" << status->total
                << "/" << length << "]\n\n";
         if (status->status != 0) {
